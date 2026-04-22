@@ -56,3 +56,4 @@ logs/
 sa-live.json
 daraja_consumer_key.txt
 daraja_consumer_secret.txt
+tools/k6/
