@@ -1,0 +1,39 @@
+{
+  "displayName": "TEMP TEST - Golfer alert email delivery",
+  "combiner": "OR",
+  "enabled": true,
+  "documentation": {
+    "content": "Temporary test policy to validate alert email delivery. Delete after confirmation.",
+    "mimeType": "text/markdown"
+  },
+  "conditions": [
+    {
+      "displayName": "Any traffic > 0 (1m)",
+      "conditionThreshold": {
+        "filter": "resource.type=\"cloud_run_revision\" AND resource.label.service_name=\"Golfer-api\" AND metric.type=\"run.googleapis.com/request_count\"",
+        "comparison": "COMPARISON_GT",
+        "thresholdValue": 0,
+        "duration": "60s",
+        "trigger": {
+          "count": 1
+        },
+        "aggregations": [
+          {
+            "alignmentPeriod": "60s",
+            "perSeriesAligner": "ALIGN_RATE",
+            "crossSeriesReducer": "REDUCE_SUM",
+            "groupByFields": [
+              "resource.label.service_name"
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "notificationChannels": [
+    "projects/Golfer-a4ad7/notificationChannels/3910696133400488352"
+  ],
+  "userLabels": {
+    "purpose": "delivery_test"
+  }
+}

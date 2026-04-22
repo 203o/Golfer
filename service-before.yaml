@@ -1,0 +1,209 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  annotations:
+    run.googleapis.com/build-enable-automatic-updates: 'false'
+    run.googleapis.com/build-id: 9f97e6df-49e7-4558-8507-16f548141534
+    run.googleapis.com/build-image-uri: europe-west1-docker.pkg.dev/Golfer-a4ad7/cloud-run-source-deploy/Golfer-api
+    run.googleapis.com/build-name: projects/393847689538/locations/europe-west1/builds/9f97e6df-49e7-4558-8507-16f548141534
+    run.googleapis.com/build-source-location: gs://run-sources-Golfer-a4ad7-europe-west1/services/Golfer-api/1771339115.580503-d1d96e15658e4eeb91d1450bec2d5307.zip#1771339341745073
+    run.googleapis.com/ingress: all
+    run.googleapis.com/ingress-status: all
+    run.googleapis.com/maxScale: '10'
+    run.googleapis.com/urls: '["https://Golfer-api-393847689538.europe-west1.run.app","https://Golfer-api-i7zjdfm5ra-ew.a.run.app"]'
+  labels:
+    cloud.googleapis.com/location: europe-west1
+  name: Golfer-api
+  namespace: '393847689538'
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/maxScale: '10'
+        run.googleapis.com/client-name: gcloud
+        run.googleapis.com/client-version: 556.0.0
+        run.googleapis.com/startup-cpu-boost: 'true'
+      labels:
+        client.knative.dev/nonce: ymepcmbogd
+        run.googleapis.com/startupProbeType: Default
+    spec:
+      containerConcurrency: 80
+      containers:
+      - env:
+        - name: ENVIRONMENT
+          value: production
+        - name: RUN_STARTUP_EXTERNAL_CHECKS
+          value: 'false'
+        - name: RUN_STARTUP_DB_WARMUP
+          value: 'false'
+        - name: RUN_STARTUP_INDEX_CHECKS
+          value: 'false'
+        - name: HOST
+          value: 0.0.0.0
+        - name: FIREBASE_PROJECT_ID
+          value: Golfer-a4ad7
+        - name: FIREBASE_CLIENT_EMAIL
+          value: REPLACE_ME
+        - name: FIREBASE_SERVICE_ACCOUNT_KEY_PATH
+          value: '{'
+        - name: FORCE_HTTPS
+          value: 'false'
+        - name: USE_BUNNY
+          value: 'false'
+        - name: USE_BUNNY_STREAM
+          value: 'false'
+        - name: BUNNY_COLLECTION_ID
+          value: 4ad013e3-5fd7-470b-9256-de55faf03ad8
+        - name: BUNNY_PULL_ZONE_ID
+          value: '5325485'
+        - name: BUNNY_STORAGE_REGION
+          value: SG
+        - name: BUNNY_STORAGE_HOST
+          value: storage.bunnycdn.com
+        - name: BUNNY_LIBRARY_ID
+          value: '599365'
+        - name: BUNNY_STORAGE_ZONE
+          value: trianzstorage
+        - name: BUNNY_CDN_BASE_URL
+          value: trianzonepull.b-cdn.net
+        - name: BUNNY_STREAM_BASE_URL
+          value: https://vz-529c6232-74e.b-cdn.net
+        - name: MAIL_USERNAME
+          value: herberkom@gmail.com
+        - name: MAIL_FROM
+          value: herberkom@gmail.com
+        - name: MAIL_PORT
+          value: '587'
+        - name: MAIL_SERVER
+          value: smtp.gmail.com
+        - name: MAIL_FROM_NAME
+          value: Golfer No-Reply
+        - name: DARAJA_LIVE
+          value: 'false'
+        - name: DARAJA_SHORTCODE
+          value: '174379'
+        - name: DARAJA_CALLBACK_URL
+          value: https://Golfer-api-393847689538.europe-west1.run.app/api/v1/mpesa/callback
+        - name: BASE_PUBLIC_URL
+          value: https://Golfer-api-393847689538.europe-west1.run.app
+        - name: UPSTASH_REDIS_REST_URL
+          value: https://correct-foxhound-34383.upstash.io
+        - name: CACHE_TTL
+          value: '60'
+        - name: AD_INTERVAL
+          value: '5'
+        - name: SEED_VALUE
+          value: '42'
+        - name: BOOST_MONTHLY_PRICE_KES
+          value: '299'
+        - name: BOOST_DURATION_DAYS
+          value: '30'
+        - name: BOOST_MAX_MONTHS
+          value: '12'
+        - name: BUNNY_STREAM_API_KEY
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: BUNNY_STREAM_API_KEY
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: SECRET_KEY
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: DATABASE_URL
+        - name: SESSION_SECRET
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: SESSION_SECRET
+        - name: BUNNY_API_KEY
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: BUNNY_API_KEY
+        - name: BUNNY_STORAGE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: BUNNY_STORAGE_PASSWORD
+        - name: FIREBASE_PRIVATE_KEY
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: FIREBASE_PRIVATE_KEY
+        - name: MAIL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: MAIL_PASSWORD
+        - name: DARAJA_CONSUMER_KEY
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: DARAJA_CONSUMER_KEY
+        - name: DARAJA_CONSUMER_SECRET
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: DARAJA_CONSUMER_SECRET
+        - name: DARAJA_PASSKEY
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: DARAJA_PASSKEY
+        - name: UPSTASH_REDIS_REST_TOKEN
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: UPSTASH_REDIS_REST_TOKEN
+        - name: GOOGLE_CLIENT_API
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: GOOGLE_CLIENT_API
+        - name: INTERNAL_API_TOKEN
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: INTERNAL_API_TOKEN
+        - name: USE_BUNNY_IMAGES
+          value: 'false'
+        image: europe-west1-docker.pkg.dev/Golfer-a4ad7/cloud-run-source-deploy/Golfer-api@sha256:eec205e547f86ac073e82a9d408e14a0bc5412bc102ff27809ce9afd7d9637f7
+        ports:
+        - containerPort: 8080
+          name: http1
+        resources:
+          limits:
+            cpu: 1000m
+            memory: 512Mi
+        startupProbe:
+          failureThreshold: 1
+          periodSeconds: 240
+          tcpSocket:
+            port: 8080
+          timeoutSeconds: 240
+        volumeMounts:
+        - mountPath: /secrets/firebase
+          name: firebase-service-account-key-mon-yun
+      serviceAccountName: 393847689538-compute@developer.gserviceaccount.com
+      timeoutSeconds: 300
+      volumes:
+      - name: firebase-service-account-key-poq-rus
+        secret:
+          items:
+          - key: latest
+            path: firebase-service-account-key.json
+          secretName: firebase-service-account-key
+      - name: firebase-service-account-key-mon-yun
+        secret:
+          items:
+          - key: latest
+            path: firebase-service-account-key.json
+          secretName: firebase-service-account-key
+  traffic:
+  - percent: 100
+    revisionName: Golfer-api-00009-cvd

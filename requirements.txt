@@ -1,0 +1,46 @@
+# --- Web framework & ASGI server ---
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+
+# --- Database & ORM ---
+SQLAlchemy==2.0.35
+psycopg2-binary==2.9.11   # Postgres driver
+asyncpg==0.30.0           # Async Postgres driver (postgresql+asyncpg)
+
+# --- Auth & Security ---
+python-jose[cryptography]==3.3.0  # for JWT (if you use jose)
+passlib[bcrypt]==1.7.4            # password hashing
+authlib==1.3.1                    # social OAuth with Starlette/FastAPI
+python-multipart==0.0.9           # form-data / file uploads
+itsdangerous==2.2.0               # short-lived tokens (Bunny proxy, etc.)
+
+# --- HTTP client ---
+requests==2.32.3
+httpx==0.27.2
+
+# --- Templates ---
+Jinja2==3.1.4
+
+# --- Settings / config ---
+pydantic==2.9.2
+pydantic-settings==2.6.0          # if you use BaseSettings from this package
+python-dotenv==1.0.1              # optional: load .env in dev
+email-validator==2.2.0            # required by pydantic EmailStr
+
+# --- Misc helpers ---
+ulid-py==1.1.0                    # ULID IDs for profiles
+Werkzeug==3.0.4                   # for secure_filename (you’re still using it)
+tenacity==9.0.0                   # retry helpers in storage utils
+filetype==1.2.0                   # upload MIME sniffing
+APScheduler==3.10.4               # background jobs
+firebase-admin==6.5.0             # Firebase auth/admin SDK
+fastapi-mail==1.4.1               # email config/utilities in auth router
+slowapi==0.1.9                    # rate limiting for upload routes
+circuitbreaker==2.1.3             # circuit breaker decorator
+Pillow==10.4.0                    # image optimization in upload pipeline
+
+# --- Logging (stdlib, no extra package needed) ---
+# logging is from stdlib; no requirement needed
+
+# --- Optional: CORS, but FastAPI includes starlette which has it ---
+# starlette is a dependency of fastapi and will be installed automatically.

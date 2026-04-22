@@ -1,0 +1,61 @@
+name: golf_charity_draw
+description: "A subscription-driven web app for golf performance tracking, charity fundraising, and monthly draw rewards."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+
+  # Network & Data
+  http: ^1.2.0
+  dio: ^5.4.0
+  shared_preferences: ^2.3.2
+  connectivity_plus: ^6.1.1
+
+  # UI & Media
+  cached_network_image: ^3.3.1
+  font_awesome_flutter: ^10.7.0
+  flutter_svg: ^2.0.10
+  flutter_dotenv: ^5.1.0
+
+  # State Management
+  provider: ^6.1.2
+
+  # Auth
+  firebase_core: ^3.4.0
+  firebase_auth: ^5.2.0
+  google_sign_in: ^6.2.1
+  google_sign_in_web: ^0.12.4+2
+
+  # Payments
+  flutter_stripe: ^10.1.1
+
+  # Location (for web)
+  geocoding: ^3.0.0
+  geolocator: ^10.1.0
+
+  # Device Info
+  device_info_plus: ^10.1.2
+  package_info_plus: ^8.1.1
+
+  # Social & Sharing
+  share_plus: ^9.0.0
+  url_launcher: ^6.2.5
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - .env
+    - assets/icons/
