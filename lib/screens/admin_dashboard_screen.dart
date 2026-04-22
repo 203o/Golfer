@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher_string.dart';
@@ -3687,13 +3689,6 @@ class _TrendsTabState extends State<_TrendsTab> {
   static const Color _textMuted = Color(0xFF9CA8C2);
   static const Color _accent = Color(0xFFFF4FA3);
 
-  static const Map<String, Color> _windowColors = {
-    'hourly': Color(0xFFFF4FA3),
-    'daily': Color(0xFF4EA8FF),
-    'weekly': Color(0xFF34D399),
-    'monthly': Color(0xFFFFB454),
-  };
-
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -3716,29 +3711,73 @@ class _TrendsTabState extends State<_TrendsTab> {
     return out;
   }
 
-  double _sumTail(List<Map<String, dynamic>> series, int count) {
-    if (series.isEmpty || count <= 0) return 0.0;
-    final start = series.length > count ? series.length - count : 0;
-    var total = 0.0;
-    for (var i = start; i < series.length; i++) {
-      total += ((series[i]['value'] as num?) ?? 0).toDouble();
+  List<double> _seriesValues(List<Map<String, dynamic>> series) {
+    final values = <double>[];
+    for (final row in series) {
+      final raw = row['value'];
+      if (raw is num) {
+        values.add(raw.toDouble());
+        continue;
+      }
+      values.add(double.tryParse('$raw') ?? 0.0);
     }
-    return total;
+    return values;
   }
 
-  Map<String, double> _windowValues(List<Map<String, dynamic>> series) {
-    final daily = _sumTail(series, 1);
-    return {
-      'hourly': daily / 24.0,
-      'daily': daily,
-      'weekly': _sumTail(series, 7),
-      'monthly': _sumTail(series, 30),
-    };
+  List<double> _downsample(List<double> values, {int maxPoints = 40}) {
+    if (values.length <= maxPoints) return values;
+    final output = <double>[];
+    final step = (values.length - 1) / (maxPoints - 1);
+    for (var i = 0; i < maxPoints; i++) {
+      final idx = (i * step).round().clamp(0, values.length - 1);
+      output.add(values[idx]);
+    }
+    return output;
+  }
+
+  double _sumValues(List<double> values) {
+    var sum = 0.0;
+    for (final value in values) {
+      sum += value;
+    }
+    return sum;
   }
 
   String _formatValue(double value, {required bool cents}) {
-    if (cents) return '\$${(value / 100.0).toStringAsFixed(2)}';
+    if (cents) {
+      return '\$${(value / 100.0).toStringAsFixed(2)}';
+    }
     return value.round().toString();
+  }
+
+  Widget _statChip({
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: _panel,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: _panelBorder),
+      ),
+      child: RichText(
+        text: TextSpan(
+          style: const TextStyle(fontSize: 12.5, color: _textMuted),
+          children: [
+            TextSpan(text: '$label: '),
+            TextSpan(
+              text: value,
+              style: TextStyle(
+                color: color,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _sectionHeader(
@@ -3778,114 +3817,106 @@ class _TrendsTabState extends State<_TrendsTab> {
     );
   }
 
-  Widget _windowGrid({
+  Widget _trendChartCard({
     required String title,
-    required Map<String, double> values,
+    required List<Map<String, dynamic>> series,
     required bool cents,
+    required Color color,
   }) {
-    final windows = const [
-      ('hourly', 'Hourly (last hour)'),
-      ('daily', 'Daily (24h)'),
-      ('weekly', 'Weekly (7d)'),
-      ('monthly', 'Monthly (30d)'),
-    ];
+    final values = _seriesValues(series);
+    final chartValues = _downsample(values);
+    final total = _sumValues(values);
+    final latest = values.isNotEmpty ? values.last : 0.0;
+    final average = values.isNotEmpty ? total / values.length : 0.0;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(
-            color: _textPrimary,
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(height: 8),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final width = constraints.maxWidth;
-            final columns = width >= 1080 ? 4 : (width >= 640 ? 2 : 1);
-            final ratio = columns >= 4 ? 2.25 : (columns == 2 ? 1.85 : 2.15);
-            return GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: windows.length,
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: columns,
-                mainAxisSpacing: 10,
-                crossAxisSpacing: 10,
-                childAspectRatio: ratio,
+    return Container(
+      decoration: BoxDecoration(
+        color: _panel,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _panelBorder),
+      ),
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 9,
+                height: 9,
+                decoration: BoxDecoration(
+                  color: color,
+                  shape: BoxShape.circle,
+                ),
               ),
-              itemBuilder: (context, index) {
-                final key = windows[index].$1;
-                final label = windows[index].$2;
-                final color = _windowColors[key] ?? const Color(0xFF64748B);
-                final value = values[key] ?? 0.0;
-                return Container(
-                  decoration: BoxDecoration(
-                    color: _panel,
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: _panelBorder),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    color: _textPrimary,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
                   ),
-                  padding: const EdgeInsets.all(14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        label,
-                        style: const TextStyle(
-                          color: _textMuted,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        _formatValue(value, cents: cents),
-                        style: const TextStyle(
-                          color: _textPrimary,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 28,
-                          height: 1,
-                        ),
-                      ),
-                      const Spacer(),
-                      Row(
-                        children: [
-                          Container(
-                            width: 9,
-                            height: 9,
-                            decoration: BoxDecoration(
-                              color: color,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              key == 'hourly'
-                                  ? 'derived from last 24h'
-                                  : 'rolling ${label.toLowerCase()}',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: color,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 12.5,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                );
-              },
-            );
-          },
-        ),
-      ],
+                ),
+              ),
+              Text(
+                '${values.length} points',
+                style: const TextStyle(
+                  color: _textMuted,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (values.isEmpty)
+            const SizedBox(
+              height: 140,
+              child: Center(
+                child: Text(
+                  'No trend points yet',
+                  style: TextStyle(color: _textMuted),
+                ),
+              ),
+            )
+          else
+            SizedBox(
+              height: 160,
+              width: double.infinity,
+              child: CustomPaint(
+                painter: _LineBarChartPainter(
+                  values: chartValues,
+                  color: color,
+                  gridColor: _panelBorder,
+                ),
+              ),
+            ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _statChip(
+                label: 'Latest',
+                value: _formatValue(latest, cents: cents),
+                color: color,
+              ),
+              _statChip(
+                label: 'Daily Avg',
+                value: _formatValue(average, cents: cents),
+                color: const Color(0xFF6DB8FF),
+              ),
+              _statChip(
+                label: 'Total',
+                value: _formatValue(total, cents: cents),
+                color: const Color(0xFF40D9A7),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -3972,7 +4003,7 @@ class _TrendsTabState extends State<_TrendsTab> {
                     },
                   ),
                   Text(
-                    'Windows: Hourly (last hour), Daily (24h), Weekly (7d), Monthly (30d)',
+                    'Daily line-bar trends for the selected analytics window',
                     style: const TextStyle(
                       color: _textMuted,
                       fontWeight: FontWeight.w600,
@@ -3990,28 +4021,32 @@ class _TrendsTabState extends State<_TrendsTab> {
                     ),
                   ],
                   const SizedBox(height: 18),
-                  _windowGrid(
+                  _trendChartCard(
                     title: 'Subscription Revenue',
-                    values: _windowValues(subscriptionSeries),
+                    series: subscriptionSeries,
                     cents: true,
+                    color: const Color(0xFFFF4FA3),
                   ),
                   const SizedBox(height: 14),
-                  _windowGrid(
+                  _trendChartCard(
                     title: 'Charity Donations',
-                    values: _windowValues(charitySeries),
+                    series: charitySeries,
                     cents: true,
+                    color: const Color(0xFF40D9A7),
                   ),
                   const SizedBox(height: 14),
-                  _windowGrid(
+                  _trendChartCard(
                     title: 'Event Donations',
-                    values: _windowValues(eventSeries),
+                    series: eventSeries,
                     cents: true,
+                    color: const Color(0xFF6DB8FF),
                   ),
                   const SizedBox(height: 14),
-                  _windowGrid(
+                  _trendChartCard(
                     title: 'Draws Completed',
-                    values: _windowValues(drawsSeries),
+                    series: drawsSeries,
                     cents: false,
+                    color: const Color(0xFFFFB454),
                   ),
                 ],
               ),
@@ -4020,6 +4055,129 @@ class _TrendsTabState extends State<_TrendsTab> {
         ),
       ),
     );
+  }
+}
+
+class _LineBarChartPainter extends CustomPainter {
+  const _LineBarChartPainter({
+    required this.values,
+    required this.color,
+    required this.gridColor,
+  });
+
+  final List<double> values;
+  final Color color;
+  final Color gridColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    if (rect.width <= 0 || rect.height <= 0) return;
+
+    final gridPaint = Paint()
+      ..color = gridColor.withValues(alpha: 0.7)
+      ..strokeWidth = 1;
+
+    for (var i = 0; i <= 4; i++) {
+      final y = rect.top + (rect.height * i / 4.0);
+      canvas.drawLine(Offset(rect.left, y), Offset(rect.right, y), gridPaint);
+    }
+
+    if (values.isEmpty) {
+      return;
+    }
+
+    final maxValue = values.reduce(math.max);
+    if (maxValue <= 0) {
+      return;
+    }
+
+    final count = values.length;
+    final stepX = count == 1 ? 0.0 : rect.width / (count - 1);
+    final barWidth =
+        math.max(2.0, math.min(10.0, (stepX == 0.0 ? 10.0 : stepX * 0.46)));
+
+    double xFor(int index) {
+      if (count == 1) return rect.left + (rect.width / 2.0);
+      return rect.left + (index * stepX);
+    }
+
+    final barPaint = Paint()..color = color.withValues(alpha: 0.24);
+    for (var i = 0; i < count; i++) {
+      final ratio = (values[i] / maxValue).clamp(0.0, 1.0);
+      final x = xFor(i);
+      final barTop = rect.bottom - (rect.height * ratio);
+      final bar = RRect.fromRectAndRadius(
+        Rect.fromLTWH(
+          x - (barWidth / 2.0),
+          barTop,
+          barWidth,
+          rect.bottom - barTop,
+        ),
+        const Radius.circular(3),
+      );
+      canvas.drawRRect(bar, barPaint);
+    }
+
+    final areaPath = Path();
+    final linePath = Path();
+    for (var i = 0; i < count; i++) {
+      final ratio = (values[i] / maxValue).clamp(0.0, 1.0);
+      final x = xFor(i);
+      final y = rect.bottom - (rect.height * ratio);
+      if (i == 0) {
+        areaPath.moveTo(x, rect.bottom);
+        areaPath.lineTo(x, y);
+        linePath.moveTo(x, y);
+      } else {
+        areaPath.lineTo(x, y);
+        linePath.lineTo(x, y);
+      }
+    }
+    areaPath.lineTo(xFor(count - 1), rect.bottom);
+    areaPath.close();
+
+    final areaPaint = Paint()..color = color.withValues(alpha: 0.10);
+    canvas.drawPath(areaPath, areaPaint);
+
+    final linePaint = Paint()
+      ..color = color
+      ..strokeWidth = 2.4
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    canvas.drawPath(linePath, linePaint);
+
+    final pointPaint = Paint()..color = color;
+    final step = math.max(1, (count / 12).floor());
+    for (var i = 0; i < count; i += step) {
+      final ratio = (values[i] / maxValue).clamp(0.0, 1.0);
+      final x = xFor(i);
+      final y = rect.bottom - (rect.height * ratio);
+      canvas.drawCircle(Offset(x, y), 2.4, pointPaint);
+    }
+    if ((count - 1) % step != 0) {
+      final ratio = (values.last / maxValue).clamp(0.0, 1.0);
+      canvas.drawCircle(
+        Offset(xFor(count - 1), rect.bottom - (rect.height * ratio)),
+        2.4,
+        pointPaint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _LineBarChartPainter oldDelegate) {
+    if (oldDelegate.color != color || oldDelegate.gridColor != gridColor) {
+      return true;
+    }
+    if (oldDelegate.values.length != values.length) {
+      return true;
+    }
+    for (var i = 0; i < values.length; i++) {
+      if (oldDelegate.values[i] != values[i]) return true;
+    }
+    return false;
   }
 }
 
