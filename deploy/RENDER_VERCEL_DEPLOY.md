@@ -29,23 +29,22 @@ This project is split as:
 
 ## 2) Deploy Flutter Web to Vercel
 
-Build locally so Flutter controls the output and stages a Vercel SPA config:
+This repo now includes root Vercel config (`vercel.json`)
+that builds Flutter web during Vercel CI and publishes `build/web`.
+
+In Vercel project settings, add environment variable:
+- `API_BASE_URL=https://<your-render-service>.onrender.com`
+
+Then deploy from Git as normal.
+
+Optional manual deploy flow (local prebuild):
 
 ```powershell
 .\scripts\build_web_release.ps1 -ApiBaseUrl https://<your-render-service>.onrender.com -StageForVercel
-```
-
-Deploy the generated `build/web` folder to Vercel:
-
-```powershell
 npm i -g vercel
 vercel login
 vercel .\build\web --prod
 ```
-
-When prompted:
-- Framework: `Other`
-- Output: keep defaults (it uses uploaded static files)
 
 ## 3) Firebase Web Auth Production Checks
 
