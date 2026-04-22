@@ -17,7 +17,7 @@ from sqlalchemy import (
     UniqueConstraint,
     Index,
 )
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import JSONB, UUID as PG_UUID
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.sql import func
 
@@ -27,7 +27,7 @@ BaseGolf = declarative_base()
 class GolfCharity(BaseGolf):
     __tablename__ = "golf_charities"
 
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = Column(PG_UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
     name = Column(String(160), nullable=False, unique=True)
     slug = Column(String(180), nullable=False, unique=True)
     description = Column(Text, nullable=True)
@@ -64,7 +64,7 @@ class GolfSubscriptionPlan(BaseGolf):
 class GolfSubscription(BaseGolf):
     __tablename__ = "golf_subscriptions"
 
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = Column(PG_UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(Integer, nullable=False, index=True)
     plan_id = Column(String(32), nullable=False, index=True)
     status = Column(String(24), nullable=False, default="active", index=True)
@@ -92,9 +92,9 @@ class GolfSubscription(BaseGolf):
 class GolfSubscriptionPayment(BaseGolf):
     __tablename__ = "golf_subscription_payments"
 
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = Column(PG_UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(Integer, nullable=False, index=True)
-    subscription_id = Column(String(36), nullable=False, index=True)
+    subscription_id = Column(PG_UUID(as_uuid=False), nullable=False, index=True)
     plan_id = Column(String(32), nullable=False, index=True)
     amount_cents = Column(BigInteger, nullable=False)
     currency = Column(String(8), nullable=False, default="USD")
@@ -110,10 +110,10 @@ class GolfSubscriptionPayment(BaseGolf):
 class GolfCharityDonation(BaseGolf):
     __tablename__ = "golf_charity_donations"
 
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = Column(PG_UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(Integer, nullable=False, index=True)
-    charity_id = Column(String(36), nullable=False, index=True)
-    subscription_id = Column(String(36), nullable=True, index=True)
+    charity_id = Column(PG_UUID(as_uuid=False), nullable=False, index=True)
+    subscription_id = Column(PG_UUID(as_uuid=False), nullable=True, index=True)
     amount_cents = Column(BigInteger, nullable=False)
     currency = Column(String(8), nullable=False, default="USD")
     payment_provider = Column(String(32), nullable=False, default="stripe")
@@ -128,7 +128,7 @@ class GolfCharityDonation(BaseGolf):
 class GolfReferralCode(BaseGolf):
     __tablename__ = "golf_referral_codes"
 
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = Column(PG_UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(Integer, nullable=False, unique=True, index=True)
     code = Column(String(24), nullable=False, unique=True, index=True)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
@@ -137,7 +137,7 @@ class GolfReferralCode(BaseGolf):
 class GolfReferral(BaseGolf):
     __tablename__ = "golf_referrals"
 
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = Column(PG_UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
     referrer_user_id = Column(Integer, nullable=False, index=True)
     referred_user_id = Column(Integer, nullable=False, unique=True, index=True)
     referral_code = Column(String(24), nullable=False, index=True)
@@ -146,7 +146,7 @@ class GolfReferral(BaseGolf):
     captured_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     qualified_at = Column(DateTime(timezone=True), nullable=True)
     rewarded_at = Column(DateTime(timezone=True), nullable=True)
-    rewarded_subscription_id = Column(String(36), nullable=True, index=True)
+    rewarded_subscription_id = Column(PG_UUID(as_uuid=False), nullable=True, index=True)
 
     __table_args__ = (
         CheckConstraint(
@@ -163,7 +163,7 @@ class GolfReferral(BaseGolf):
 class GolfScore(BaseGolf):
     __tablename__ = "golf_scores"
 
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = Column(PG_UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(Integer, nullable=False, index=True)
     course_name = Column(String(200), nullable=False)
     score = Column(Integer, nullable=False)
@@ -182,7 +182,7 @@ class GolfUserCharitySetting(BaseGolf):
     __tablename__ = "golf_user_charity_settings"
 
     user_id = Column(Integer, primary_key=True)
-    charity_id = Column(String(36), nullable=False, index=True)
+    charity_id = Column(PG_UUID(as_uuid=False), nullable=False, index=True)
     contribution_pct = Column(Numeric(5, 2), nullable=False, default=15)
     updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
 
@@ -197,7 +197,7 @@ class GolfUserCharitySetting(BaseGolf):
 class GolfDraw(BaseGolf):
     __tablename__ = "golf_draws"
 
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = Column(PG_UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
     month_key = Column(String(7), nullable=False, unique=True, index=True)
     status = Column(String(24), nullable=False, default="open", index=True)
     run_at = Column(DateTime(timezone=True), nullable=True)
@@ -254,10 +254,10 @@ class GolfDrawSettings(BaseGolf):
 class GolfDrawEntry(BaseGolf):
     __tablename__ = "golf_draw_entries"
 
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = Column(PG_UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(Integer, nullable=False, index=True)
-    draw_id = Column(String(36), nullable=False, index=True)
-    score_id = Column(String(36), nullable=False, index=True)
+    draw_id = Column(PG_UUID(as_uuid=False), nullable=False, index=True)
+    score_id = Column(PG_UUID(as_uuid=False), nullable=False, index=True)
     score_window = Column(JSONB, nullable=False)
     numbers = Column(JSONB, nullable=False)
     match_count = Column(Integer, nullable=True, index=True)
@@ -273,10 +273,10 @@ class GolfDrawEntry(BaseGolf):
 class GolfPoolLedger(BaseGolf):
     __tablename__ = "golf_pool_ledger"
 
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = Column(PG_UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(Integer, nullable=False, index=True)
-    subscription_id = Column(String(36), nullable=True, index=True)
-    draw_id = Column(String(36), nullable=True, index=True)
+    subscription_id = Column(PG_UUID(as_uuid=False), nullable=True, index=True)
+    draw_id = Column(PG_UUID(as_uuid=False), nullable=True, index=True)
     amount_cents = Column(BigInteger, nullable=False)
     source = Column(String(48), nullable=False)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
@@ -285,8 +285,8 @@ class GolfPoolLedger(BaseGolf):
 class GolfPrizeRollover(BaseGolf):
     __tablename__ = "golf_prize_rollovers"
 
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    from_draw_id = Column(String(36), nullable=False, index=True)
+    id = Column(PG_UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
+    from_draw_id = Column(PG_UUID(as_uuid=False), nullable=False, index=True)
     amount_cents = Column(BigInteger, nullable=False)
     reason = Column(String(120), nullable=False)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
@@ -295,8 +295,8 @@ class GolfPrizeRollover(BaseGolf):
 class GolfWinnerClaim(BaseGolf):
     __tablename__ = "golf_winner_claims"
 
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    draw_entry_id = Column(String(36), nullable=False, unique=True, index=True)
+    id = Column(PG_UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
+    draw_entry_id = Column(PG_UUID(as_uuid=False), nullable=False, unique=True, index=True)
     user_id = Column(Integer, nullable=False, index=True)
     proof_url = Column(String(400), nullable=False)
     review_status = Column(String(16), nullable=False, default="pending", index=True)
@@ -318,7 +318,7 @@ class GolfWinnerClaim(BaseGolf):
 class TournamentCourse(BaseGolf):
     __tablename__ = "tournament_courses"
 
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = Column(PG_UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
     name = Column(String(200), nullable=False)
     location = Column(String(220), nullable=True)
     course_rating = Column(Numeric(4, 1), nullable=False)
@@ -335,8 +335,8 @@ class TournamentCourse(BaseGolf):
 class TournamentCourseHole(BaseGolf):
     __tablename__ = "tournament_course_holes"
 
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    course_id = Column(String(36), ForeignKey("tournament_courses.id"), nullable=False, index=True)
+    id = Column(PG_UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
+    course_id = Column(PG_UUID(as_uuid=False), ForeignKey("tournament_courses.id"), nullable=False, index=True)
     hole_number = Column(Integer, nullable=False)
     par = Column(Integer, nullable=False)
     yardage = Column(Integer, nullable=True)
@@ -371,9 +371,9 @@ class TournamentPlayerProfile(BaseGolf):
 class TournamentRound(BaseGolf):
     __tablename__ = "tournament_rounds"
 
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = Column(PG_UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
     player_user_id = Column(Integer, nullable=False, index=True)
-    course_id = Column(String(36), ForeignKey("tournament_courses.id"), nullable=False, index=True)
+    course_id = Column(PG_UUID(as_uuid=False), ForeignKey("tournament_courses.id"), nullable=False, index=True)
     round_type = Column(String(12), nullable=False, default="18hole")
     played_at = Column(DateTime(timezone=True), nullable=False)
     status = Column(String(16), nullable=False, default="draft", index=True)
@@ -403,8 +403,8 @@ class TournamentRound(BaseGolf):
 class TournamentRoundHole(BaseGolf):
     __tablename__ = "tournament_round_holes"
 
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    round_id = Column(String(36), ForeignKey("tournament_rounds.id"), nullable=False, index=True)
+    id = Column(PG_UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
+    round_id = Column(PG_UUID(as_uuid=False), ForeignKey("tournament_rounds.id"), nullable=False, index=True)
     hole_number = Column(Integer, nullable=False)
     par = Column(Integer, nullable=False)
     strokes = Column(Integer, nullable=False)
@@ -429,8 +429,8 @@ class TournamentRoundHole(BaseGolf):
 class TournamentRoundVerification(BaseGolf):
     __tablename__ = "tournament_round_verifications"
 
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    round_id = Column(String(36), ForeignKey("tournament_rounds.id"), nullable=False, unique=True, index=True)
+    id = Column(PG_UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
+    round_id = Column(PG_UUID(as_uuid=False), ForeignKey("tournament_rounds.id"), nullable=False, unique=True, index=True)
     marker_user_id = Column(Integer, nullable=False, index=True)
     marker_confirmed = Column(Boolean, nullable=False, default=False)
     marker_confirmed_at = Column(DateTime(timezone=True), nullable=True)
@@ -444,8 +444,8 @@ class TournamentRoundVerification(BaseGolf):
 class TournamentRoundAuditEvent(BaseGolf):
     __tablename__ = "tournament_round_audit_events"
 
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    round_id = Column(String(36), ForeignKey("tournament_rounds.id"), nullable=False, index=True)
+    id = Column(PG_UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
+    round_id = Column(PG_UUID(as_uuid=False), ForeignKey("tournament_rounds.id"), nullable=False, index=True)
     actor_user_id = Column(Integer, nullable=False, index=True)
     event_type = Column(String(32), nullable=False)
     payload = Column(JSONB, nullable=True)
@@ -455,7 +455,7 @@ class TournamentRoundAuditEvent(BaseGolf):
 class TournamentPlayerMetricSnapshot(BaseGolf):
     __tablename__ = "tournament_player_metric_snapshots"
 
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = Column(PG_UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(Integer, nullable=False, index=True)
     as_of = Column(DateTime(timezone=True), nullable=False, index=True)
     rounds_used = Column(Integer, nullable=False)
@@ -473,7 +473,7 @@ class TournamentPlayerMetricSnapshot(BaseGolf):
 class TournamentPlayerRating(BaseGolf):
     __tablename__ = "tournament_player_ratings"
 
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = Column(PG_UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(Integer, nullable=False, index=True)
     as_of = Column(DateTime(timezone=True), nullable=False, index=True)
     rating_formula_version = Column(String(24), nullable=False, default="v1.0")
@@ -489,9 +489,9 @@ class TournamentPlayerRating(BaseGolf):
 class TournamentFraudFlag(BaseGolf):
     __tablename__ = "tournament_fraud_flags"
 
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = Column(PG_UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(Integer, nullable=False, index=True)
-    round_id = Column(String(36), ForeignKey("tournament_rounds.id"), nullable=True, index=True)
+    round_id = Column(PG_UUID(as_uuid=False), ForeignKey("tournament_rounds.id"), nullable=True, index=True)
     flag_type = Column(String(40), nullable=False, index=True)
     severity = Column(String(12), nullable=False, default="low")
     details = Column(JSONB, nullable=True)
@@ -507,7 +507,7 @@ class TournamentFraudFlag(BaseGolf):
 class TournamentTeamDrawRun(BaseGolf):
     __tablename__ = "tournament_team_draw_runs"
 
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = Column(PG_UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
     event_key = Column(String(80), nullable=False, index=True)
     algorithm = Column(String(24), nullable=False, default="balanced_sum")
     constraints_json = Column(JSONB, nullable=True)
@@ -526,8 +526,8 @@ class TournamentTeamDrawRun(BaseGolf):
 class TournamentTeamAssignment(BaseGolf):
     __tablename__ = "tournament_team_assignments"
 
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    draw_run_id = Column(String(36), ForeignKey("tournament_team_draw_runs.id"), nullable=False, index=True)
+    id = Column(PG_UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
+    draw_run_id = Column(PG_UUID(as_uuid=False), ForeignKey("tournament_team_draw_runs.id"), nullable=False, index=True)
     team_label = Column(String(24), nullable=False, index=True)
     user_id = Column(Integer, nullable=False, index=True)
     player_rating = Column(Numeric(5, 2), nullable=False)
@@ -537,7 +537,7 @@ class TournamentTeamAssignment(BaseGolf):
 class TournamentEvent(BaseGolf):
     __tablename__ = "tournament_events"
 
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = Column(PG_UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
     title = Column(String(180), nullable=False)
     event_type = Column(String(24), nullable=False, index=True)
     description = Column(Text, nullable=True)
@@ -571,9 +571,9 @@ class TournamentEvent(BaseGolf):
 class TournamentEventDonation(BaseGolf):
     __tablename__ = "tournament_event_donations"
 
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = Column(PG_UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(Integer, nullable=False, index=True)
-    event_id = Column(String(36), ForeignKey("tournament_events.id"), nullable=False, index=True)
+    event_id = Column(PG_UUID(as_uuid=False), ForeignKey("tournament_events.id"), nullable=False, index=True)
     amount_cents = Column(Integer, nullable=False)
     currency = Column(String(8), nullable=False, default="USD")
     provider = Column(String(24), nullable=False, default="mpesa")
@@ -596,10 +596,10 @@ class TournamentEventDonation(BaseGolf):
 class TournamentEventUnlock(BaseGolf):
     __tablename__ = "tournament_event_unlocks"
 
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = Column(PG_UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(Integer, nullable=False, index=True)
-    event_id = Column(String(36), ForeignKey("tournament_events.id"), nullable=False, index=True)
-    donation_id = Column(String(36), ForeignKey("tournament_event_donations.id"), nullable=False, unique=True, index=True)
+    event_id = Column(PG_UUID(as_uuid=False), ForeignKey("tournament_events.id"), nullable=False, index=True)
+    donation_id = Column(PG_UUID(as_uuid=False), ForeignKey("tournament_event_donations.id"), nullable=False, unique=True, index=True)
     unlock_mode = Column(String(24), nullable=False)
     ticket_count = Column(Integer, nullable=False, default=1)
     tickets_used = Column(Integer, nullable=False, default=0)
@@ -620,10 +620,10 @@ class TournamentEventUnlock(BaseGolf):
 class TournamentEventParticipant(BaseGolf):
     __tablename__ = "tournament_event_participants"
 
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    event_id = Column(String(36), ForeignKey("tournament_events.id"), nullable=False, index=True)
+    id = Column(PG_UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
+    event_id = Column(PG_UUID(as_uuid=False), ForeignKey("tournament_events.id"), nullable=False, index=True)
     user_id = Column(Integer, nullable=False, index=True)
-    unlock_id = Column(String(36), ForeignKey("tournament_event_unlocks.id"), nullable=False, index=True)
+    unlock_id = Column(PG_UUID(as_uuid=False), ForeignKey("tournament_event_unlocks.id"), nullable=False, index=True)
     joined_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     state = Column(String(16), nullable=False, default="joined")
 
@@ -639,8 +639,8 @@ class TournamentEventParticipant(BaseGolf):
 class TournamentChallengeSession(BaseGolf):
     __tablename__ = "tournament_challenge_sessions"
 
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    event_id = Column(String(36), ForeignKey("tournament_events.id"), nullable=False, index=True)
+    id = Column(PG_UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
+    event_id = Column(PG_UUID(as_uuid=False), ForeignKey("tournament_events.id"), nullable=False, index=True)
     event_type = Column(String(24), nullable=False, index=True)
     creator_user_id = Column(Integer, nullable=False, index=True)
     scheduled_at = Column(DateTime(timezone=True), nullable=False, index=True)
@@ -665,8 +665,8 @@ class TournamentChallengeSession(BaseGolf):
 class TournamentChallengeParticipant(BaseGolf):
     __tablename__ = "tournament_challenge_participants"
 
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    session_id = Column(String(36), ForeignKey("tournament_challenge_sessions.id"), nullable=False, index=True)
+    id = Column(PG_UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
+    session_id = Column(PG_UUID(as_uuid=False), ForeignKey("tournament_challenge_sessions.id"), nullable=False, index=True)
     user_id = Column(Integer, nullable=False, index=True)
     role = Column(String(16), nullable=False, default="player")
     invite_state = Column(String(16), nullable=False, default="pending", index=True)
@@ -686,7 +686,7 @@ class TournamentChallengeParticipant(BaseGolf):
 class TournamentFriendRequest(BaseGolf):
     __tablename__ = "tournament_friend_requests"
 
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = Column(PG_UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
     sender_user_id = Column(Integer, nullable=False, index=True)
     receiver_user_id = Column(Integer, nullable=False, index=True)
     status = Column(String(16), nullable=False, default="pending", index=True)
@@ -708,11 +708,11 @@ class TournamentFriendRequest(BaseGolf):
 class TournamentInboxMessage(BaseGolf):
     __tablename__ = "tournament_inbox_messages"
 
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = Column(PG_UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
     recipient_user_id = Column(Integer, nullable=False, index=True)
     sender_user_id = Column(Integer, nullable=False, index=True)
-    session_id = Column(String(36), ForeignKey("tournament_challenge_sessions.id"), nullable=True, index=True)
-    related_score_id = Column(String(36), nullable=True, index=True)
+    session_id = Column(PG_UUID(as_uuid=False), ForeignKey("tournament_challenge_sessions.id"), nullable=True, index=True)
+    related_score_id = Column(PG_UUID(as_uuid=False), nullable=True, index=True)
     message_type = Column(String(32), nullable=False, index=True)
     title = Column(String(180), nullable=False)
     body = Column(Text, nullable=False)
@@ -735,8 +735,8 @@ class TournamentInboxMessage(BaseGolf):
 class TournamentSessionScore(BaseGolf):
     __tablename__ = "tournament_session_scores"
 
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    session_id = Column(String(36), ForeignKey("tournament_challenge_sessions.id"), nullable=False, index=True)
+    id = Column(PG_UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
+    session_id = Column(PG_UUID(as_uuid=False), ForeignKey("tournament_challenge_sessions.id"), nullable=False, index=True)
     player_user_id = Column(Integer, nullable=False, index=True)
     marker_user_id = Column(Integer, nullable=False, index=True)
     total_score = Column(Integer, nullable=False)
@@ -783,8 +783,8 @@ class TournamentSessionScore(BaseGolf):
 class TournamentSessionScoreHole(BaseGolf):
     __tablename__ = "tournament_session_score_holes"
 
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    score_id = Column(String(36), ForeignKey("tournament_session_scores.id"), nullable=False, index=True)
+    id = Column(PG_UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
+    score_id = Column(PG_UUID(as_uuid=False), ForeignKey("tournament_session_scores.id"), nullable=False, index=True)
     hole_number = Column(Integer, nullable=False)
     score = Column(Integer, nullable=False)
 
@@ -798,9 +798,10 @@ class TournamentSessionScoreHole(BaseGolf):
 class TournamentScoreboardEntry(BaseGolf):
     __tablename__ = "tournament_scoreboard_entries"
 
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    session_id = Column(String(36), ForeignKey("tournament_challenge_sessions.id"), nullable=False, index=True)
-    score_id = Column(String(36), ForeignKey("tournament_session_scores.id"), nullable=False, unique=True, index=True)
+    id = Column(PG_UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
+    session_id = Column(PG_UUID(as_uuid=False), ForeignKey("tournament_challenge_sessions.id"), nullable=False, index=True)
+    score_id = Column(PG_UUID(as_uuid=False), ForeignKey("tournament_session_scores.id"), nullable=False, unique=True, index=True)
     player_user_id = Column(Integer, nullable=False, index=True)
     total_score = Column(Integer, nullable=False)
     confirmed_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
