@@ -3327,95 +3327,113 @@ async def admin_analytics_bootstrap(
     start_dt = now - timedelta(days=days - 1)
     start_day = start_dt.date()
 
+    async def _safe_scalar(stmt: Any, *, default: Any = 0) -> Any:
+        try:
+            return (await db.execute(stmt)).scalar_one() or default
+        except ProgrammingError as exc:
+            if not _is_missing_relation_error(exc):
+                raise
+            await db.rollback()
+            return default
+
+    async def _safe_rows(stmt: Any) -> list[Any]:
+        try:
+            return (await db.execute(stmt)).all()
+        except ProgrammingError as exc:
+            if not _is_missing_relation_error(exc):
+                raise
+            await db.rollback()
+            return []
+
     active_subs_stmt = select(func.count(GolfSubscription.id)).where(
         GolfSubscription.status == "active",
         GolfSubscription.current_period_end >= now,
     )
-    active_subscribers = int((await db.execute(active_subs_stmt)).scalar_one() or 0)
+    active_subscribers = int(await _safe_scalar(active_subs_stmt, default=0))
 
     total_subs_stmt = select(func.count(GolfSubscription.id))
-    total_subscriptions = int((await db.execute(total_subs_stmt)).scalar_one() or 0)
+    total_subscriptions = int(await _safe_scalar(total_subs_stmt, default=0))
 
     subs_revenue_stmt = select(func.coalesce(func.sum(GolfSubscriptionPayment.amount_cents), 0))
-    total_subscription_revenue_cents = int((await db.execute(subs_revenue_stmt)).scalar_one() or 0)
+    total_subscription_revenue_cents = int(await _safe_scalar(subs_revenue_stmt, default=0))
 
     charity_total_stmt = select(func.coalesce(func.sum(GolfCharityDonation.amount_cents), 0))
-    total_charity_donations_cents = int((await db.execute(charity_total_stmt)).scalar_one() or 0)
+    total_charity_donations_cents = int(await _safe_scalar(charity_total_stmt, default=0))
 
     event_donation_total_stmt = select(
         func.coalesce(func.sum(TournamentEventDonation.amount_cents), 0)
     ).where(TournamentEventDonation.status == "completed")
-    total_event_donations_cents = int((await db.execute(event_donation_total_stmt)).scalar_one() or 0)
+    total_event_donations_cents = int(await _safe_scalar(event_donation_total_stmt, default=0))
 
     wallet_topups_stmt = select(func.coalesce(func.sum(WalletLedger.amount), 0.0)).where(
         WalletLedger.entry_type == "topup",
         WalletLedger.status == "completed",
     )
-    total_wallet_topups_usd = float((await db.execute(wallet_topups_stmt)).scalar_one() or 0.0)
+    total_wallet_topups_usd = float(await _safe_scalar(wallet_topups_stmt, default=0.0))
 
     draw_total_stmt = select(func.count(GolfDraw.id))
-    total_draws = int((await db.execute(draw_total_stmt)).scalar_one() or 0)
+    total_draws = int(await _safe_scalar(draw_total_stmt, default=0))
     draw_completed_stmt = select(func.count(GolfDraw.id)).where(GolfDraw.status == "completed")
-    completed_draws = int((await db.execute(draw_completed_stmt)).scalar_one() or 0)
+    completed_draws = int(await _safe_scalar(draw_completed_stmt, default=0))
     weekly_draws_stmt = select(func.count(GolfDraw.id)).where(GolfDraw.month_key.like("%-W%"))
-    weekly_draws = int((await db.execute(weekly_draws_stmt)).scalar_one() or 0)
+    weekly_draws = int(await _safe_scalar(weekly_draws_stmt, default=0))
     monthly_draws = max(total_draws - weekly_draws, 0)
     winner_entries_stmt = select(func.count(GolfDrawEntry.id)).where(GolfDrawEntry.is_winner.is_(True))
-    total_winner_entries = int((await db.execute(winner_entries_stmt)).scalar_one() or 0)
+    total_winner_entries = int(await _safe_scalar(winner_entries_stmt, default=0))
 
     pending_claims_stmt = select(func.count(GolfWinnerClaim.id)).where(GolfWinnerClaim.review_status == "pending")
-    pending_claims = int((await db.execute(pending_claims_stmt)).scalar_one() or 0)
+    pending_claims = int(await _safe_scalar(pending_claims_stmt, default=0))
     paid_claims_stmt = select(func.count(GolfWinnerClaim.id)).where(GolfWinnerClaim.payout_state == "paid")
-    paid_claims = int((await db.execute(paid_claims_stmt)).scalar_one() or 0)
+    paid_claims = int(await _safe_scalar(paid_claims_stmt, default=0))
     payout_pending_stmt = select(func.count(GolfWinnerClaim.id)).where(
         GolfWinnerClaim.review_status == "approved",
         GolfWinnerClaim.payout_state == "pending",
     )
-    approved_pending_payouts = int((await db.execute(payout_pending_stmt)).scalar_one() or 0)
+    approved_pending_payouts = int(await _safe_scalar(payout_pending_stmt, default=0))
 
     role_counts_stmt = select(User.role, func.count(User.id)).group_by(User.role)
-    role_counts = _status_count_map((await db.execute(role_counts_stmt)).all())
+    role_counts = _status_count_map(await _safe_rows(role_counts_stmt))
 
     event_status_stmt = select(TournamentEvent.status, func.count(TournamentEvent.id)).group_by(
         TournamentEvent.status
     )
-    event_status_counts = _status_count_map((await db.execute(event_status_stmt)).all())
+    event_status_counts = _status_count_map(await _safe_rows(event_status_stmt))
 
     session_status_stmt = select(
         TournamentChallengeSession.status,
         func.count(TournamentChallengeSession.id),
     ).group_by(TournamentChallengeSession.status)
-    session_status_counts = _status_count_map((await db.execute(session_status_stmt)).all())
+    session_status_counts = _status_count_map(await _safe_rows(session_status_stmt))
 
     score_status_stmt = select(
         TournamentSessionScore.status,
         func.count(TournamentSessionScore.id),
     ).group_by(TournamentSessionScore.status)
-    score_status_counts = _status_count_map((await db.execute(score_status_stmt)).all())
+    score_status_counts = _status_count_map(await _safe_rows(score_status_stmt))
 
     unlock_status_stmt = select(
         TournamentEventUnlock.status,
         func.count(TournamentEventUnlock.id),
     ).group_by(TournamentEventUnlock.status)
-    unlock_status_counts = _status_count_map((await db.execute(unlock_status_stmt)).all())
+    unlock_status_counts = _status_count_map(await _safe_rows(unlock_status_stmt))
 
     fraud_severity_stmt = select(
         TournamentFraudFlag.severity,
         func.count(TournamentFraudFlag.id),
     ).group_by(TournamentFraudFlag.severity)
-    fraud_severity_counts = _status_count_map((await db.execute(fraud_severity_stmt)).all())
+    fraud_severity_counts = _status_count_map(await _safe_rows(fraud_severity_stmt))
     open_fraud_stmt = select(func.count(TournamentFraudFlag.id)).where(TournamentFraudFlag.status == "open")
-    open_fraud_flags = int((await db.execute(open_fraud_stmt)).scalar_one() or 0)
+    open_fraud_flags = int(await _safe_scalar(open_fraud_stmt, default=0))
 
     pending_friend_requests_stmt = select(func.count(TournamentFriendRequest.id)).where(
         TournamentFriendRequest.status == "pending"
     )
-    pending_friend_requests = int((await db.execute(pending_friend_requests_stmt)).scalar_one() or 0)
+    pending_friend_requests = int(await _safe_scalar(pending_friend_requests_stmt, default=0))
 
     unread_messages_stmt = select(func.count(TournamentInboxMessage.id)).where(
         TournamentInboxMessage.status == "unread"
     )
-    unread_messages = int((await db.execute(unread_messages_stmt)).scalar_one() or 0)
+    unread_messages = int(await _safe_scalar(unread_messages_stmt, default=0))
 
     daily_subs_stmt = (
         select(
@@ -3426,7 +3444,7 @@ async def admin_analytics_bootstrap(
         .group_by(func.date(GolfSubscriptionPayment.created_at))
         .order_by(func.date(GolfSubscriptionPayment.created_at))
     )
-    daily_subs_rows = (await db.execute(daily_subs_stmt)).all()
+    daily_subs_rows = await _safe_rows(daily_subs_stmt)
 
     daily_charity_stmt = (
         select(
@@ -3437,7 +3455,7 @@ async def admin_analytics_bootstrap(
         .group_by(func.date(GolfCharityDonation.created_at))
         .order_by(func.date(GolfCharityDonation.created_at))
     )
-    daily_charity_rows = (await db.execute(daily_charity_stmt)).all()
+    daily_charity_rows = await _safe_rows(daily_charity_stmt)
 
     daily_event_donations_stmt = (
         select(
@@ -3451,7 +3469,7 @@ async def admin_analytics_bootstrap(
         .group_by(func.date(TournamentEventDonation.created_at))
         .order_by(func.date(TournamentEventDonation.created_at))
     )
-    daily_event_donations_rows = (await db.execute(daily_event_donations_stmt)).all()
+    daily_event_donations_rows = await _safe_rows(daily_event_donations_stmt)
 
     daily_draws_completed_stmt = (
         select(
@@ -3465,7 +3483,7 @@ async def admin_analytics_bootstrap(
         .group_by(func.date(GolfDraw.completed_at))
         .order_by(func.date(GolfDraw.completed_at))
     )
-    daily_draws_completed_rows = (await db.execute(daily_draws_completed_stmt)).all()
+    daily_draws_completed_rows = await _safe_rows(daily_draws_completed_stmt)
 
     return {
         "window": {
