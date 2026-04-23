@@ -1769,9 +1769,12 @@ class _DrawsTab extends StatelessWidget {
             ),
           ),
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(0, 0, 0, 16),
-              child: Column(
+            child: Scrollbar(
+              thumbVisibility: true,
+              trackVisibility: true,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(0, 0, 0, 16),
+                child: Column(
                 children: [
                   if (drawProvider.draws.isEmpty)
                     const Padding(
@@ -2354,6 +2357,7 @@ class _DrawsTab extends StatelessWidget {
                     ),
                   ),
                 ],
+                ),
               ),
             ),
           ),
