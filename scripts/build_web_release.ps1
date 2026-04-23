@@ -39,7 +39,15 @@ Write-Host "Using Flutter: $flutter"
 Write-Host "Building Flutter web with API_BASE_URL=$resolvedApiBaseUrl"
 
 & $flutter pub get
-& $flutter build web --release "--dart-define=API_BASE_URL=$resolvedApiBaseUrl"
+
+$buildOutput = Join-Path $PSScriptRoot '..\build\web'
+if (Test-Path $buildOutput) {
+    Remove-Item -Recurse -Force $buildOutput
+}
+
+# Build without Flutter's web service worker so stale caches do not pin older
+# app shells or API endpoints after deployment.
+& $flutter build web --release --pwa-strategy=none "--dart-define=API_BASE_URL=$resolvedApiBaseUrl"
 
 if ($StageForVercel) {
     $sourceConfig = Join-Path $PSScriptRoot '..\deploy\vercel.static.json'

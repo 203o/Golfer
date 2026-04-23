@@ -19,8 +19,11 @@ fi
 
 flutter --version
 flutter pub get
-flutter build web --release --dart-define="API_BASE_URL=${API_BASE_URL}"
+
+# Build without the Flutter web service worker so cached app shells do not
+# keep serving stale API endpoints across deployments.
+rm -rf build/web
+flutter build web --release --pwa-strategy=none --dart-define="API_BASE_URL=${API_BASE_URL}"
 
 # Apply SPA/static hosting rules expected by this app.
 cp deploy/vercel.static.json build/web/vercel.json
-
