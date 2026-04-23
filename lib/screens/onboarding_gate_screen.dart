@@ -385,10 +385,6 @@ class _OnboardingGateScreenState extends State<OnboardingGateScreen> {
                           throw Exception('Card declined (mock).');
                         }
                         if (!mounted) return;
-                        await charityProvider.saveMyCharitySelection(
-                          charityId: charityId,
-                          contributionPct: _charityContributionPct,
-                        );
                         await subscriptionProvider.createSubscription(
                           '',
                           planId,
@@ -396,6 +392,14 @@ class _OnboardingGateScreenState extends State<OnboardingGateScreen> {
                           charityId: charityId,
                           charityContributionPct: _charityContributionPct,
                         );
+                        try {
+                          await charityProvider.saveMyCharitySelection(
+                            charityId: charityId,
+                            contributionPct: _charityContributionPct,
+                          );
+                        } catch (_) {
+                          // Best-effort sync only; the subscription checkout already persists the selection server-side.
+                        }
                         if (!dialogContext.mounted) return;
                         Navigator.pop(dialogContext);
                       } catch (e) {

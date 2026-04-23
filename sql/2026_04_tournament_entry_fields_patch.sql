@@ -14,6 +14,22 @@ ALTER TABLE tournament_session_scores
 
 DO $$
 BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'ck_tournament_session_score_total'
+    ) THEN
+        ALTER TABLE tournament_session_scores
+            DROP CONSTRAINT ck_tournament_session_score_total;
+    END IF;
+
+    ALTER TABLE tournament_session_scores
+        ADD CONSTRAINT ck_tournament_session_score_total
+        CHECK (total_score >= 1 AND total_score <= 200);
+END $$;
+
+DO $$
+BEGIN
     IF NOT EXISTS (
         SELECT 1
         FROM pg_constraint

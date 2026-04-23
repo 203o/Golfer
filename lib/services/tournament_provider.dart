@@ -295,6 +295,28 @@ class TournamentProvider with ChangeNotifier {
       }
       _error = null;
     } catch (e) {
+      final message = e.toString().toLowerCase();
+      final shouldFallback = message.contains('failed to fetch') ||
+          message.contains('connection') ||
+          message.contains('socket') ||
+          message.contains('401') ||
+          message.contains('403');
+      if (shouldFallback) {
+        try {
+          final publicBody = await _getPublic('/api/tournament/public/events');
+          _events = List<Map<String, dynamic>>.from(publicBody['events'] ?? []);
+          _sessions = [];
+          _inboxMessages = [];
+          _incomingFriendRequests = [];
+          if (includePlayers) {
+            _availablePlayers = [];
+          }
+          _error = null;
+          return;
+        } catch (_) {
+          // Fall through to the existing error handling below.
+        }
+      }
       if (!silent) {
         _error = e.toString();
         rethrow;

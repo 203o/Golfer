@@ -111,6 +111,12 @@ class _TournamentPlayerScreenState extends State<TournamentPlayerScreen> {
         });
       }
     } catch (_) {
+      try {
+        await provider.loadEvents();
+      } catch (_) {}
+      try {
+        await charityProvider.loadCharities();
+      } catch (_) {}
     } finally {
       if (mounted) {
         setState(() => _hardBootstrapLoading = false);
@@ -317,10 +323,11 @@ class _TournamentPlayerScreenState extends State<TournamentPlayerScreen> {
   Future<void> _createSession() async {
     final eventId = _selectedUnlockedEventId;
     final provider = context.read<TournamentProvider>();
-    final selectedEvent = provider.events.cast<Map<String, dynamic>>().firstWhere(
-          (e) => e['id']?.toString() == eventId,
-          orElse: () => <String, dynamic>{},
-        );
+    final selectedEvent =
+        provider.events.cast<Map<String, dynamic>>().firstWhere(
+              (e) => e['id']?.toString() == eventId,
+              orElse: () => <String, dynamic>{},
+            );
     final selectedEventType =
         (selectedEvent['event_type'] ?? '').toString().toLowerCase();
     if (eventId == null) {
@@ -338,15 +345,17 @@ class _TournamentPlayerScreenState extends State<TournamentPlayerScreen> {
     setState(() => _busy = true);
     try {
       await provider.createSession(
-            eventId: eventId,
-            scheduledAt: _scheduledAt.toUtc(),
-            invitedUserIds:
-                selectedEventType == 'solo' ? const [] : _selectedInvitees.toList(),
-          );
+        eventId: eventId,
+        scheduledAt: _scheduledAt.toUtc(),
+        invitedUserIds:
+            selectedEventType == 'solo' ? const [] : _selectedInvitees.toList(),
+      );
       _selectedInvitees.clear();
       await _reloadAll();
       _snack(
-        selectedEventType == 'solo' ? 'Solo session created' : 'Challenge created',
+        selectedEventType == 'solo'
+            ? 'Solo session created'
+            : 'Challenge created',
       );
     } catch (e) {
       _snack('Create challenge failed: $e');
@@ -403,19 +412,6 @@ class _TournamentPlayerScreenState extends State<TournamentPlayerScreen> {
       _snack('Friend request sent');
     } catch (e) {
       _snack('Unable to send friend request: $e');
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  Future<void> _confirmScore(String scoreId) async {
-    setState(() => _busy = true);
-    try {
-      await context.read<TournamentProvider>().confirmScore(scoreId);
-      await _reloadAll();
-      _snack('Score confirmed');
-    } catch (e) {
-      _snack('Confirm failed: $e');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -512,45 +508,6 @@ class _TournamentPlayerScreenState extends State<TournamentPlayerScreen> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
-  }
-
-  Future<void> _rejectScore(String scoreId) async {
-    final reasonController = TextEditingController();
-    await showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Reject Score'),
-        content: TextField(
-          controller: reasonController,
-          decoration: const InputDecoration(labelText: 'Reason'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              setState(() => _busy = true);
-              try {
-                await context.read<TournamentProvider>().rejectScore(
-                      scoreId: scoreId,
-                      reason: reasonController.text.trim(),
-                    );
-                await _reloadAll();
-                _snack('Score rejected');
-              } catch (e) {
-                _snack('Reject failed: $e');
-              } finally {
-                if (mounted) setState(() => _busy = false);
-              }
-            },
-            child: const Text('Reject'),
-          ),
-        ],
-      ),
-    );
   }
 
   Widget _localNavBar() {
@@ -887,10 +844,11 @@ class _TournamentPlayerScreenState extends State<TournamentPlayerScreen> {
         ? (selectedCharity.first['name']?.toString() ?? 'Charity')
         : 'Charity';
     final availableEvents = events;
-    final selectedEvent = availableEvents.cast<Map<String, dynamic>>().firstWhere(
-          (e) => e['id']?.toString() == _selectedUnlockedEventId,
-          orElse: () => <String, dynamic>{},
-        );
+    final selectedEvent =
+        availableEvents.cast<Map<String, dynamic>>().firstWhere(
+              (e) => e['id']?.toString() == _selectedUnlockedEventId,
+              orElse: () => <String, dynamic>{},
+            );
     final selectedEventType =
         (selectedEvent['event_type'] ?? '').toString().toLowerCase();
     final isSoloEvent = selectedEventType == 'solo';
@@ -1294,9 +1252,10 @@ class _TournamentPlayerScreenState extends State<TournamentPlayerScreen> {
                                             itemCount: visiblePlayers.length,
                                             itemBuilder: (context, index) {
                                               final p = visiblePlayers[index];
-                                              final id = (p['id'] as num).toInt();
-                                              final selected =
-                                                  _selectedInvitees.contains(id);
+                                              final id =
+                                                  (p['id'] as num).toInt();
+                                              final selected = _selectedInvitees
+                                                  .contains(id);
                                               final isOnline =
                                                   p['is_online'] == true;
                                               final friendStatus =
@@ -1313,9 +1272,8 @@ class _TournamentPlayerScreenState extends State<TournamentPlayerScreen> {
 
                                               return Card(
                                                 child: Padding(
-                                                  padding:
-                                                      const EdgeInsets.symmetric(
-                                                          horizontal: 8),
+                                                  padding: const EdgeInsets
+                                                      .symmetric(horizontal: 8),
                                                   child: Row(
                                                     children: [
                                                       Checkbox(
@@ -1324,9 +1282,11 @@ class _TournamentPlayerScreenState extends State<TournamentPlayerScreen> {
                                                             ? null
                                                             : (v) {
                                                                 setState(() {
-                                                                  if (v == true) {
+                                                                  if (v ==
+                                                                      true) {
                                                                     _selectedInvitees
-                                                                        .add(id);
+                                                                        .add(
+                                                                            id);
                                                                   } else {
                                                                     _selectedInvitees
                                                                         .remove(
@@ -1361,7 +1321,8 @@ class _TournamentPlayerScreenState extends State<TournamentPlayerScreen> {
                                                           horizontal: 8,
                                                           vertical: 3,
                                                         ),
-                                                        decoration: BoxDecoration(
+                                                        decoration:
+                                                            BoxDecoration(
                                                           color: isOnline
                                                               ? const Color(
                                                                   0xFFE7F8EF)
@@ -1369,7 +1330,8 @@ class _TournamentPlayerScreenState extends State<TournamentPlayerScreen> {
                                                                   0xFFF1F4F8),
                                                           borderRadius:
                                                               BorderRadius
-                                                                  .circular(999),
+                                                                  .circular(
+                                                                      999),
                                                         ),
                                                         child: Text(
                                                           isOnline
@@ -1461,7 +1423,10 @@ class _TournamentPlayerScreenState extends State<TournamentPlayerScreen> {
                                         controller: _scoreController,
                                         keyboardType: TextInputType.number,
                                         decoration: const InputDecoration(
-                                            labelText: 'Total Score'),
+                                          labelText: 'Total Score',
+                                          helperText:
+                                              'Enter a positive whole-number score.',
+                                        ),
                                       ),
                                       const SizedBox(height: 8),
                                       TextField(

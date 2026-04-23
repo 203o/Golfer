@@ -756,7 +756,7 @@ class TournamentSessionScore(BaseGolf):
             "status in ('pending_confirmation','confirmed','rejected')",
             name="ck_tournament_session_score_status",
         ),
-        CheckConstraint("total_score >= 18 and total_score <= 200", name="ck_tournament_session_score_total"),
+        CheckConstraint("total_score >= 1 and total_score <= 200", name="ck_tournament_session_score_total"),
         CheckConstraint(
             "holes_played is null or holes_played in (9,18)",
             name="ck_tournament_session_score_holes_played",

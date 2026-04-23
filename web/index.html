@@ -11,6 +11,9 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="Golfer">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
 
   <link rel="icon" type="image/png" href="favicon.png"/>
 
@@ -19,7 +22,31 @@
 
 </head>
 <body>
-  <script src="flutter_bootstrap.js" async></script>
+  <script>
+    (async function () {
+      const flag = 'golfer_sw_cleanup_done';
+      try {
+        if (sessionStorage.getItem(flag) !== '1') {
+          if ('serviceWorker' in navigator) {
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            await Promise.all(registrations.map((registration) => registration.unregister()));
+          }
+          if ('caches' in window) {
+            const keys = await caches.keys();
+            await Promise.all(keys.map((key) => caches.delete(key)));
+          }
+          sessionStorage.setItem(flag, '1');
+        }
+      } catch (_) {
+        // If storage is unavailable, continue booting rather than blocking the app.
+      }
+
+      const bootstrap = document.createElement('script');
+      bootstrap.src = 'flutter_bootstrap.js';
+      bootstrap.async = true;
+      document.body.appendChild(bootstrap);
+    })();
+  </script>
 </body>
 </html>
 

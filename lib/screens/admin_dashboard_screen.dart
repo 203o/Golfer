@@ -568,6 +568,226 @@ class _DrawsTab extends StatelessWidget {
     );
   }
 
+  Widget _smallSectionCard({
+    required String title,
+    required IconData icon,
+    required List<Widget> children,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0E1420),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _panelBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 18, color: _accent),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    color: _textPrimary,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ...children,
+        ],
+      ),
+    );
+  }
+
+  Widget _scoreChip(String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.45)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontWeight: FontWeight.w700,
+          fontSize: 12,
+        ),
+      ),
+    );
+  }
+
+  Widget _ruleLine({
+    required IconData icon,
+    required String title,
+    required String detail,
+    Color iconColor = const Color(0xFF64B3FF),
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 1),
+            child: Icon(icon, size: 16, color: iconColor),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(
+                    text: '$title: ',
+                    style: const TextStyle(
+                      color: _textPrimary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  TextSpan(
+                    text: detail,
+                    style: const TextStyle(
+                      color: _textMuted,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _drawRewardSystemCard() {
+    return _panelCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Draw & Reward System',
+            style: TextStyle(
+              color: _textPrimary,
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Monthly draw rules, prize tiers, and release controls.',
+            style: TextStyle(
+              color: _textMuted,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 12),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final width = constraints.maxWidth;
+              final columns = width >= 960 ? 3 : (width >= 680 ? 2 : 1);
+              final cardWidth = columns == 3
+                  ? (width - 16) / 3
+                  : columns == 2
+                      ? (width - 8) / 2
+                      : width;
+              return Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  SizedBox(
+                    width: cardWidth,
+                    child: _smallSectionCard(
+                      title: 'Draw Types',
+                      icon: Icons.confirmation_number_outlined,
+                      children: [
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            _scoreChip(
+                                '5-Number Match', const Color(0xFFFFB454)),
+                            _scoreChip(
+                                '4-Number Match', const Color(0xFF64B3FF)),
+                            _scoreChip(
+                                '3-Number Match', const Color(0xFF2FD8A3)),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(
+                    width: cardWidth,
+                    child: _smallSectionCard(
+                      title: 'Draw Logic Options',
+                      icon: Icons.auto_graph_outlined,
+                      children: [
+                        _ruleLine(
+                          icon: Icons.casino_outlined,
+                          title: 'Random generation',
+                          detail: 'standard lottery-style draw',
+                          iconColor: const Color(0xFFFFB454),
+                        ),
+                        _ruleLine(
+                          icon: Icons.insights_outlined,
+                          title: 'Algorithmic',
+                          detail: 'weighted by most/least frequent user scores',
+                          iconColor: const Color(0xFF64B3FF),
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(
+                    width: cardWidth,
+                    child: _smallSectionCard(
+                      title: 'Operational Requirements',
+                      icon: Icons.schedule_outlined,
+                      children: [
+                        _ruleLine(
+                          icon: Icons.calendar_month_outlined,
+                          title: 'Monthly cadence',
+                          detail: 'draws executed once per month',
+                          iconColor: const Color(0xFF2FD8A3),
+                        ),
+                        _ruleLine(
+                          icon: Icons.lock_outline,
+                          title: 'Publishing control',
+                          detail: 'admin controls publishing of draw results',
+                          iconColor: const Color(0xFFFF4FA3),
+                        ),
+                        _ruleLine(
+                          icon: Icons.science_outlined,
+                          title: 'Simulation mode',
+                          detail:
+                              'pre-analysis before official publish is supported',
+                          iconColor: const Color(0xFF64B3FF),
+                        ),
+                        _ruleLine(
+                          icon: Icons.rotate_right_outlined,
+                          title: 'Jackpot rollover',
+                          detail:
+                              'rolls to the next month if no 5-match winner',
+                          iconColor: const Color(0xFFFFB454),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   int _asInt(dynamic value, int fallback) {
     if (value is int) return value;
     if (value is num) return value.toInt();
@@ -1083,6 +1303,8 @@ class _DrawsTab extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 12),
+                _drawRewardSystemCard(),
+                const SizedBox(height: 10),
                 _panelCard(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

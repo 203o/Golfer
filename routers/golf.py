@@ -11,7 +11,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from firebase_admin import auth as firebase_auth
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, Field, HttpUrl, field_validator
 from sqlalchemy import and_, delete, func, or_, select, text
 from sqlalchemy.exc import IntegrityError, ProgrammingError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -1496,8 +1496,18 @@ class IndependentCharityDonationRequest(BaseModel):
 
 class ProfileSetupRequest(BaseModel):
     display_name: str = Field(min_length=2, max_length=120)
-    skill_level: str = Field(pattern=r"^(beginner|intermediate|pro|elite)$")
+    skill_level: str = Field(pattern=r"^(beginner|beginer|intermediate|pro|elite)$")
     club_affiliation: str = Field(min_length=2, max_length=160)
+
+    @field_validator("skill_level", mode="before")
+    @classmethod
+    def _normalize_skill_level(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized == "beginer":
+                return "beginner"
+            return normalized
+        return value
 
 
 class WalletTopupRequest(BaseModel):
@@ -1523,9 +1533,19 @@ class AdminUserUpdateRequest(BaseModel):
     role: str | None = Field(default=None, pattern=r"^(guest|subscriber|admin|admine)$")
     status: str | None = Field(default=None, min_length=2, max_length=30)
     profile_setup_completed: bool | None = None
-    skill_level: str | None = Field(default=None, pattern=r"^(beginner|intermediate|pro|elite)$")
+    skill_level: str | None = Field(default=None, pattern=r"^(beginner|beginer|intermediate|pro|elite)$")
     club_affiliation: str | None = Field(default=None, min_length=2, max_length=160)
     profile_pic: str | None = Field(default=None, max_length=2000)
+
+    @field_validator("skill_level", mode="before")
+    @classmethod
+    def _normalize_skill_level(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized == "beginer":
+                return "beginner"
+            return normalized
+        return value
 
 
 class AdminScoreUpdateRequest(BaseModel):

@@ -39,7 +39,10 @@ configure_logging(app)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins(settings.CORS_ALLOW_ORIGINS),
-    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?$",
+    allow_origin_regex=(
+        r"^(https?://(localhost|127\.0\.0\.1)(:\d+)?|"
+        r"https?://([A-Za-z0-9-]+\.)*vercel\.app)$"
+    ),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -52,6 +52,13 @@ class AdminUserManagementProvider with ChangeNotifier {
     return '$fallback (${response.statusCode})';
   }
 
+  String? _normalizeSkillLevel(dynamic value) {
+    if (value is! String) return value?.toString();
+    final normalized = value.trim().toLowerCase();
+    if (normalized == 'beginer') return 'beginner';
+    return normalized;
+  }
+
   Future<void> loadUsers({
     String? query,
     String? role,
@@ -99,13 +106,23 @@ class AdminUserManagementProvider with ChangeNotifier {
   ) async {
     final token = await _authToken();
     final uri = Uri.parse('$_apiBaseUrl/api/golf/admin/users/$userId');
+    final normalizedPatch = Map<String, dynamic>.from(patch);
+    if (normalizedPatch.containsKey('skill_level')) {
+      normalizedPatch['skill_level'] =
+          _normalizeSkillLevel(normalizedPatch['skill_level']);
+    }
+    if (normalizedPatch.containsKey('role') &&
+        normalizedPatch['role'] is String) {
+      normalizedPatch['role'] =
+          (normalizedPatch['role'] as String).trim().toLowerCase();
+    }
     final response = await http.put(
       uri,
       headers: {
         'Authorization': 'Bearer $token',
         'Content-Type': 'application/json',
       },
-      body: jsonEncode(patch),
+      body: jsonEncode(normalizedPatch),
     );
     if (response.statusCode >= 400) {
       throw Exception(_extractError(response, 'Failed to update user'));

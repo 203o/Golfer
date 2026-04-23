@@ -434,7 +434,7 @@ class FriendRequestActionRequest(BaseModel):
 
 
 class SessionScoreSubmitRequest(BaseModel):
-    total_score: int = Field(ge=18, le=200)
+    total_score: int = Field(ge=1, le=200)
     holes_played: int | None = Field(default=None, ge=9, le=18)
     hole_scores: list[int] = Field(default_factory=list)
     total_putts: int | None = Field(default=None, ge=0, le=120)

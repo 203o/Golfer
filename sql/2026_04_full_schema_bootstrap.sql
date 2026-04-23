@@ -559,7 +559,7 @@ CREATE TABLE IF NOT EXISTS tournament_session_scores (
     session_id VARCHAR(36) NOT NULL REFERENCES tournament_challenge_sessions(id) ON DELETE CASCADE,
     player_user_id INTEGER NOT NULL,
     marker_user_id INTEGER NOT NULL,
-    total_score INTEGER NOT NULL CHECK (total_score >= 18 AND total_score <= 200),
+    total_score INTEGER NOT NULL CHECK (total_score >= 1 AND total_score <= 200),
     holes_played INTEGER CHECK (holes_played IN (9,18)),
     total_putts INTEGER CHECK (total_putts >= 0 AND total_putts <= 120),
     gir_count INTEGER CHECK (gir_count >= 0 AND gir_count <= 18),

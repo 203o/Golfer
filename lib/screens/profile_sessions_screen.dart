@@ -41,8 +41,9 @@ class _ProfileSessionsScreenState extends State<ProfileSessionsScreen> {
   Future<void> _load() async {
     setState(() => _busy = true);
     try {
-      await context.read<TournamentProvider>().loadMySessions();
-      await context.read<TournamentProvider>().loadInbox();
+      final tournamentProvider = context.read<TournamentProvider>();
+      await tournamentProvider.loadMySessions();
+      await tournamentProvider.loadInbox();
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -69,7 +70,8 @@ class _ProfileSessionsScreenState extends State<ProfileSessionsScreen> {
       case TopNavItem.charityTournaments:
         screen = const TournamentPlayerScreen();
       case TopNavItem.dashboard:
-        screen = const UserDashboardScreen(initialView: DashboardView.dashboard);
+        screen =
+            const UserDashboardScreen(initialView: DashboardView.dashboard);
     }
 
     Navigator.pushAndRemoveUntil(
@@ -150,7 +152,8 @@ class _ProfileSessionsScreenState extends State<ProfileSessionsScreen> {
   Widget build(BuildContext context) {
     final provider = context.watch<TournamentProvider>();
     final sessions = provider.sessions;
-    final playableSessions = sessions.where((s) => s['status'] == 'in_progress').toList();
+    final playableSessions =
+        sessions.where((s) => s['status'] == 'in_progress').toList();
     Map<String, dynamic>? selectedSession;
     if (_selectedSessionId != null) {
       for (final s in sessions) {
@@ -202,7 +205,8 @@ class _ProfileSessionsScreenState extends State<ProfileSessionsScreen> {
                       const Card(
                         child: ListTile(
                           title: Text('No sessions yet'),
-                          subtitle: Text('Create or accept an invite to start.'),
+                          subtitle:
+                              Text('Create or accept an invite to start.'),
                         ),
                       )
                     else ...[
@@ -218,8 +222,10 @@ class _ProfileSessionsScreenState extends State<ProfileSessionsScreen> {
                               ),
                             )
                             .toList(),
-                        onChanged: (v) => setState(() => _selectedSessionId = v),
-                        decoration: const InputDecoration(labelText: 'Select Session'),
+                        onChanged: (v) =>
+                            setState(() => _selectedSessionId = v),
+                        decoration:
+                            const InputDecoration(labelText: 'Select Session'),
                       ),
                       const SizedBox(height: 10),
                       if (_selectedSessionId != null &&
@@ -229,7 +235,10 @@ class _ProfileSessionsScreenState extends State<ProfileSessionsScreen> {
                         TextField(
                           controller: _scoreController,
                           keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(labelText: 'Total Score'),
+                          decoration: const InputDecoration(
+                            labelText: 'Total Score',
+                            helperText: 'Enter a positive whole-number score.',
+                          ),
                         ),
                         const SizedBox(height: 8),
                         TextField(
@@ -249,13 +258,15 @@ class _ProfileSessionsScreenState extends State<ProfileSessionsScreen> {
                           style: TextStyle(color: Color(0xFF607289)),
                         ),
                       const SizedBox(height: 10),
-                      if (_selectedSessionId != null && selectedStatus == 'ready_to_start')
+                      if (_selectedSessionId != null &&
+                          selectedStatus == 'ready_to_start')
                         ElevatedButton.icon(
                           onPressed: _busy ? null : _startSession,
                           icon: const Icon(Icons.play_arrow),
                           label: const Text('Start Session'),
                         ),
-                      if (_selectedSessionId != null && selectedStatus == 'in_progress') ...[
+                      if (_selectedSessionId != null &&
+                          selectedStatus == 'in_progress') ...[
                         if (selectedAutoCloseAt != null)
                           Text(
                             'Auto-closes at: $selectedAutoCloseAt',
