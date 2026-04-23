@@ -1760,10 +1760,12 @@ async def tournament_bootstrap(
             )
         ).scalars().all()
         event_map: dict[str, TournamentEvent] = {}
-        event_ids = sorted({s.event_id for s in sessions})
+        event_ids = sorted({_id_text_value(s.event_id) for s in sessions})
         if event_ids:
             event_rows = (
-                await db.execute(select(TournamentEvent).where(TournamentEvent.id.in_(event_ids)))
+                await db.execute(
+                    select(TournamentEvent).where(_id_text_expr(TournamentEvent.id).in_(event_ids))
+                )
             ).scalars().all()
             event_map = {event.id: event for event in event_rows}
         changed = False
