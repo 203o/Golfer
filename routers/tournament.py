@@ -624,6 +624,10 @@ async def ensure_default_events(db: AsyncSession) -> None:
         )
         existing = (await db.execute(existing_stmt)).scalar_one_or_none()
         if existing:
+            cfg_stored_type = cfg.get("stored_event_type", cfg["event_type"])
+            if existing.event_type != cfg_stored_type:
+                existing.event_type = cfg_stored_type
+                changed = True
             if existing.unlock_mode != cfg["unlock_mode"]:
                 existing.unlock_mode = cfg["unlock_mode"]
                 changed = True
