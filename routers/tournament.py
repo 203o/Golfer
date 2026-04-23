@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from requests.auth import HTTPBasicAuth
 from sqlalchemy import and_, delete, func, or_, select
-from sqlalchemy.exc import ProgrammingError
+from sqlalchemy.exc import IntegrityError, ProgrammingError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
@@ -1505,9 +1505,12 @@ async def create_challenge_session(
     if is_solo_event and invitees:
         raise HTTPException(status_code=400, detail="Solo event does not require invited players")
 
+    # Legacy compatibility: older data can still expose `solo`, while sessions
+    # are stored with `group_challenge` + max_participants=1.
+    stored_event_type = _event_type_for_storage(event.event_type)
     session = TournamentChallengeSession(
         event_id=event.id,
-        event_type=event.event_type,
+        event_type=stored_event_type,
         creator_user_id=current_user.id,
         scheduled_at=payload.scheduled_at,
         status="pending_invites" if invitees else "ready_to_start",
@@ -1548,8 +1551,28 @@ async def create_challenge_session(
         )
         db.add(msg)
 
-    await db.commit()
-    await db.refresh(session)
+    try:
+        await db.commit()
+    except IntegrityError as exc:
+        await db.rollback()
+        message = str(exc).lower()
+        if "ck_tournament_challenge_session_type" in message:
+            raise HTTPException(
+                status_code=409,
+                detail="Selected challenge type is not supported in the current schema.",
+            ) from exc
+        raise HTTPException(
+            status_code=409,
+            detail="Could not create challenge session due to a data conflict.",
+        ) from exc
+    except ProgrammingError as exc:
+        await db.rollback()
+        if _is_missing_relation_or_column_error(exc):
+            raise HTTPException(
+                status_code=503,
+                detail="Tournament schema is not fully migrated. Apply latest SQL patches and retry.",
+            ) from exc
+        raise
 
     return {
         "session_id": session.id,
@@ -1579,7 +1602,13 @@ async def list_my_sessions(
         .where(TournamentChallengeSession.id.in_(session_ids))
         .order_by(TournamentChallengeSession.scheduled_at.desc())
     )
-    sessions = (await db.execute(sessions_stmt)).scalars().all()
+    try:
+        sessions = (await db.execute(sessions_stmt)).scalars().all()
+    except ProgrammingError as exc:
+        if not _is_missing_relation_or_column_error(exc):
+            raise
+        await db.rollback()
+        return {"sessions": []}
     event_map: dict[str, TournamentEvent] = {}
     event_ids = sorted({s.event_id for s in sessions})
     if event_ids:
