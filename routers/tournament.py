@@ -12,7 +12,7 @@ import requests
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from requests.auth import HTTPBasicAuth
-from sqlalchemy import and_, delete, func, or_, select
+from sqlalchemy import and_, cast, delete, func, or_, select, String
 from sqlalchemy.exc import IntegrityError, ProgrammingError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -163,6 +163,14 @@ def _is_missing_relation_or_column_error(exc: Exception) -> bool:
         or ("relation" in message and "does not exist" in message)
         or ("column" in message and "does not exist" in message)
     )
+
+
+def _id_text_expr(column):
+    return cast(column, String)
+
+
+def _id_text_value(value: Any) -> str:
+    return str(value)
 
 
 def expected_holes(round_type: str) -> int:
@@ -473,7 +481,7 @@ async def _active_unlock_for_user_event(
         select(TournamentEventUnlock)
         .where(
             TournamentEventUnlock.user_id == user_id,
-            TournamentEventUnlock.event_id == event_id,
+            _id_text_expr(TournamentEventUnlock.event_id) == _id_text_value(event_id),
             TournamentEventUnlock.status == "active",
             or_(TournamentEventUnlock.expires_at.is_(None), TournamentEventUnlock.expires_at > now),
         )
@@ -502,7 +510,7 @@ async def _best_unlock_for_user_event(
             select(TournamentEventUnlock)
             .where(
                 TournamentEventUnlock.user_id == user_id,
-                TournamentEventUnlock.event_id == event.id,
+                _id_text_expr(TournamentEventUnlock.event_id) == _id_text_value(event.id),
                 TournamentEventUnlock.unlock_mode == "window_access",
             )
             .order_by(TournamentEventUnlock.unlocked_at.desc())
@@ -556,7 +564,7 @@ async def auto_close_overdue_sessions(db: AsyncSession) -> None:
         participants = (
             await db.execute(
                 select(TournamentChallengeParticipant).where(
-                    TournamentChallengeParticipant.session_id == session.id,
+                    _id_text_expr(TournamentChallengeParticipant.session_id) == _id_text_value(session.id),
                     TournamentChallengeParticipant.user_id != session.creator_user_id,
                     TournamentChallengeParticipant.invite_state == "accepted",
                 )
@@ -581,7 +589,7 @@ async def reconcile_session_invite_status(db: AsyncSession, session: TournamentC
     participants = (
         await db.execute(
             select(TournamentChallengeParticipant.invite_state).where(
-                TournamentChallengeParticipant.session_id == session.id
+                _id_text_expr(TournamentChallengeParticipant.session_id) == _id_text_value(session.id)
             )
         )
     ).scalars().all()
@@ -799,7 +807,11 @@ async def my_event_access(
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     await ensure_default_events(db)
-    event = (await db.execute(select(TournamentEvent).where(TournamentEvent.id == event_id))).scalar_one_or_none()
+    event = (
+        await db.execute(
+            select(TournamentEvent).where(_id_text_expr(TournamentEvent.id) == _id_text_value(event_id))
+        )
+    ).scalar_one_or_none()
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
     unlock = await _best_unlock_for_user_event(db, current_user.id, event)
@@ -826,7 +838,11 @@ async def initiate_event_donation(
 ) -> dict[str, Any]:
     await ensure_default_events(db)
     now = utcnow()
-    event = (await db.execute(select(TournamentEvent).where(TournamentEvent.id == event_id))).scalar_one_or_none()
+    event = (
+        await db.execute(
+            select(TournamentEvent).where(_id_text_expr(TournamentEvent.id) == _id_text_value(event_id))
+        )
+    ).scalar_one_or_none()
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
     if event.status != "active" or now < event.start_at or now > event.end_at:
@@ -915,13 +931,17 @@ async def confirm_event_donation(
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     await ensure_default_events(db)
-    event = (await db.execute(select(TournamentEvent).where(TournamentEvent.id == event_id))).scalar_one_or_none()
+    event = (
+        await db.execute(
+            select(TournamentEvent).where(_id_text_expr(TournamentEvent.id) == _id_text_value(event_id))
+        )
+    ).scalar_one_or_none()
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
 
     donation_stmt = select(TournamentEventDonation).where(
         TournamentEventDonation.provider_ref == payload.checkout_request_id,
-        TournamentEventDonation.event_id == event_id,
+        _id_text_expr(TournamentEventDonation.event_id) == _id_text_value(event_id),
         TournamentEventDonation.user_id == current_user.id,
     )
     donation = (await db.execute(donation_stmt)).scalar_one_or_none()
@@ -1009,7 +1029,11 @@ async def join_event(
 ) -> dict[str, Any]:
     await ensure_default_events(db)
     now = utcnow()
-    event = (await db.execute(select(TournamentEvent).where(TournamentEvent.id == event_id))).scalar_one_or_none()
+    event = (
+        await db.execute(
+            select(TournamentEvent).where(_id_text_expr(TournamentEvent.id) == _id_text_value(event_id))
+        )
+    ).scalar_one_or_none()
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
     if event.status != "active" or now < event.start_at or now > event.end_at:
@@ -1068,7 +1092,11 @@ async def manual_unlock_event(
         )
 
     await ensure_default_events(db)
-    event = (await db.execute(select(TournamentEvent).where(TournamentEvent.id == event_id))).scalar_one_or_none()
+    event = (
+        await db.execute(
+            select(TournamentEvent).where(_id_text_expr(TournamentEvent.id) == _id_text_value(event_id))
+        )
+    ).scalar_one_or_none()
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
     if payload.amount_cents < int(event.min_donation_cents):
@@ -1145,7 +1173,11 @@ async def wallet_unlock_event(
 ) -> dict[str, Any]:
     await ensure_default_events(db)
     now = utcnow()
-    event = (await db.execute(select(TournamentEvent).where(TournamentEvent.id == event_id))).scalar_one_or_none()
+    event = (
+        await db.execute(
+            select(TournamentEvent).where(_id_text_expr(TournamentEvent.id) == _id_text_value(event_id))
+        )
+    ).scalar_one_or_none()
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
     if event.status != "active" or now < event.start_at or now > event.end_at:
@@ -1496,7 +1528,11 @@ async def create_challenge_session(
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     await ensure_default_events(db)
-    event = (await db.execute(select(TournamentEvent).where(TournamentEvent.id == payload.event_id))).scalar_one_or_none()
+    event = (
+        await db.execute(
+            select(TournamentEvent).where(_id_text_expr(TournamentEvent.id) == _id_text_value(payload.event_id))
+        )
+    ).scalar_one_or_none()
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
     if event.status != "active":
@@ -1601,35 +1637,38 @@ async def list_my_sessions(
     if not session_ids:
         return {"sessions": []}
 
-    sessions_stmt = (
-        select(TournamentChallengeSession)
-        .where(TournamentChallengeSession.id.in_(session_ids))
-        .order_by(TournamentChallengeSession.scheduled_at.desc())
-    )
     try:
-        sessions = (await db.execute(sessions_stmt)).scalars().all()
+        sessions = (
+            await db.execute(
+                select(TournamentChallengeSession)
+                .where(_id_text_expr(TournamentChallengeSession.id).in_([_id_text_value(sid) for sid in session_ids]))
+                .order_by(TournamentChallengeSession.scheduled_at.desc())
+            )
+        ).scalars().all()
     except ProgrammingError as exc:
         if not _is_missing_relation_or_column_error(exc):
             raise
         await db.rollback()
         return {"sessions": []}
     event_map: dict[str, TournamentEvent] = {}
-    event_ids = sorted({s.event_id for s in sessions})
+    event_ids = sorted({_id_text_value(s.event_id) for s in sessions})
     if event_ids:
         event_rows = (
-            await db.execute(select(TournamentEvent).where(TournamentEvent.id.in_(event_ids)))
+            await db.execute(
+                select(TournamentEvent).where(_id_text_expr(TournamentEvent.id).in_(event_ids))
+            )
         ).scalars().all()
         event_map = {event.id: event for event in event_rows}
     changed = False
     for s in sessions:
         if s.status in {"pending_invites", "ready_to_start"}:
             pending_count_stmt = select(func.count(TournamentChallengeParticipant.id)).where(
-                TournamentChallengeParticipant.session_id == s.id,
+                _id_text_expr(TournamentChallengeParticipant.session_id) == _id_text_value(s.id),
                 TournamentChallengeParticipant.invite_state == "pending",
             )
             pending_count = int((await db.execute(pending_count_stmt)).scalar_one() or 0)
             declined_count_stmt = select(func.count(TournamentChallengeParticipant.id)).where(
-                TournamentChallengeParticipant.session_id == s.id,
+                _id_text_expr(TournamentChallengeParticipant.session_id) == _id_text_value(s.id),
                 TournamentChallengeParticipant.invite_state == "declined",
             )
             declined_count = int((await db.execute(declined_count_stmt)).scalar_one() or 0)
@@ -1713,12 +1752,13 @@ async def tournament_bootstrap(
     session_ids = [sid for sid in (await db.execute(participant_stmt)).scalars().all()]
     sessions_out: list[dict[str, Any]] = []
     if session_ids:
-        sessions_stmt = (
-            select(TournamentChallengeSession)
-            .where(TournamentChallengeSession.id.in_(session_ids))
-            .order_by(TournamentChallengeSession.scheduled_at.desc())
-        )
-        sessions = (await db.execute(sessions_stmt)).scalars().all()
+        sessions = (
+            await db.execute(
+                select(TournamentChallengeSession)
+                .where(_id_text_expr(TournamentChallengeSession.id).in_([_id_text_value(sid) for sid in session_ids]))
+                .order_by(TournamentChallengeSession.scheduled_at.desc())
+            )
+        ).scalars().all()
         event_map: dict[str, TournamentEvent] = {}
         event_ids = sorted({s.event_id for s in sessions})
         if event_ids:
@@ -1730,12 +1770,12 @@ async def tournament_bootstrap(
         for s in sessions:
             if s.status in {"pending_invites", "ready_to_start"}:
                 pending_count_stmt = select(func.count(TournamentChallengeParticipant.id)).where(
-                    TournamentChallengeParticipant.session_id == s.id,
+                    _id_text_expr(TournamentChallengeParticipant.session_id) == _id_text_value(s.id),
                     TournamentChallengeParticipant.invite_state == "pending",
                 )
                 pending_count = int((await db.execute(pending_count_stmt)).scalar_one() or 0)
                 declined_count_stmt = select(func.count(TournamentChallengeParticipant.id)).where(
-                    TournamentChallengeParticipant.session_id == s.id,
+                    _id_text_expr(TournamentChallengeParticipant.session_id) == _id_text_value(s.id),
                     TournamentChallengeParticipant.invite_state == "declined",
                 )
                 declined_count = int((await db.execute(declined_count_stmt)).scalar_one() or 0)
@@ -1964,9 +2004,12 @@ async def dashboard_bootstrap(
         )
         .join(
             TournamentChallengeSession,
-            TournamentChallengeSession.id == latest_session_scores.c.session_id,
+            _id_text_expr(TournamentChallengeSession.id) == _id_text_expr(latest_session_scores.c.session_id),
         )
-        .outerjoin(TournamentEvent, TournamentEvent.id == TournamentChallengeSession.event_id)
+        .outerjoin(
+            TournamentEvent,
+            _id_text_expr(TournamentEvent.id) == _id_text_expr(TournamentChallengeSession.event_id),
+        )
         .where(latest_session_scores.c.rn == 1)
         .order_by(latest_session_scores.c.submitted_at.desc().nullslast())
         .limit(30)
@@ -2045,7 +2088,7 @@ async def dashboard_bootstrap(
             select(TournamentChallengeParticipant, User)
             .join(User, User.id == TournamentChallengeParticipant.user_id)
             .where(
-                TournamentChallengeParticipant.session_id == session.id,
+                _id_text_expr(TournamentChallengeParticipant.session_id) == _id_text_value(session.id),
                 TournamentChallengeParticipant.invite_state == "accepted",
             )
             .order_by(User.username.asc())
@@ -2069,7 +2112,7 @@ async def dashboard_bootstrap(
                     TournamentSessionScore.submitted_at.label("latest_submit_at"),
                 )
                 .where(
-                    TournamentSessionScore.session_id == session.id,
+                    _id_text_expr(TournamentSessionScore.session_id) == _id_text_value(session.id),
                     TournamentSessionScore.status.in_(["pending_confirmation", "confirmed"]),
                     TournamentSessionScore.player_user_id.in_(participant_ids),
                 )
@@ -2114,7 +2157,9 @@ async def dashboard_bootstrap(
             )
 
         event = (
-            await db.execute(select(TournamentEvent).where(TournamentEvent.id == session.event_id))
+            await db.execute(
+                select(TournamentEvent).where(_id_text_expr(TournamentEvent.id) == _id_text_value(session.event_id))
+            )
         ).scalar_one_or_none()
         event_title = event.title if event else session.event_type
 
@@ -2319,7 +2364,7 @@ async def action_inbox_message(
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     stmt = select(TournamentInboxMessage).where(
-        TournamentInboxMessage.id == message_id,
+        _id_text_expr(TournamentInboxMessage.id) == _id_text_value(message_id),
         TournamentInboxMessage.recipient_user_id == current_user.id,
     )
     message = (await db.execute(stmt)).scalar_one_or_none()
@@ -2331,14 +2376,16 @@ async def action_inbox_message(
         raise HTTPException(status_code=409, detail="Invite missing session reference")
 
     participant_stmt = select(TournamentChallengeParticipant).where(
-        TournamentChallengeParticipant.session_id == message.session_id,
+        _id_text_expr(TournamentChallengeParticipant.session_id) == _id_text_value(message.session_id),
         TournamentChallengeParticipant.user_id == current_user.id,
     )
     participant = (await db.execute(participant_stmt)).scalar_one_or_none()
     if not participant:
         raise HTTPException(status_code=404, detail="Participant record not found")
 
-    session_stmt = select(TournamentChallengeSession).where(TournamentChallengeSession.id == message.session_id)
+    session_stmt = select(TournamentChallengeSession).where(
+        _id_text_expr(TournamentChallengeSession.id) == _id_text_value(message.session_id)
+    )
     session = (await db.execute(session_stmt)).scalar_one_or_none()
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -2355,12 +2402,12 @@ async def action_inbox_message(
     await db.flush()
 
     pending_count_stmt = select(func.count(TournamentChallengeParticipant.id)).where(
-        TournamentChallengeParticipant.session_id == session.id,
+        _id_text_expr(TournamentChallengeParticipant.session_id) == _id_text_value(session.id),
         TournamentChallengeParticipant.invite_state == "pending",
     )
     pending_count = int((await db.execute(pending_count_stmt)).scalar_one() or 0)
     declined_count_stmt = select(func.count(TournamentChallengeParticipant.id)).where(
-        TournamentChallengeParticipant.session_id == session.id,
+        _id_text_expr(TournamentChallengeParticipant.session_id) == _id_text_value(session.id),
         TournamentChallengeParticipant.invite_state == "declined",
     )
     declined_count = int((await db.execute(declined_count_stmt)).scalar_one() or 0)
@@ -2396,7 +2443,9 @@ async def start_challenge_session(
 ) -> dict[str, Any]:
     await auto_close_overdue_sessions(db)
     session = (
-        await db.execute(select(TournamentChallengeSession).where(TournamentChallengeSession.id == session_id))
+        await db.execute(
+            select(TournamentChallengeSession).where(_id_text_expr(TournamentChallengeSession.id) == _id_text_value(session_id))
+        )
     ).scalar_one_or_none()
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -2406,7 +2455,11 @@ async def start_challenge_session(
     if session.status != "ready_to_start":
         raise HTTPException(status_code=409, detail=f"Session cannot be started from status '{session.status}'")
 
-    event = (await db.execute(select(TournamentEvent).where(TournamentEvent.id == session.event_id))).scalar_one_or_none()
+    event = (
+        await db.execute(
+            select(TournamentEvent).where(_id_text_expr(TournamentEvent.id) == _id_text_value(session.event_id))
+        )
+    ).scalar_one_or_none()
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
     now = utcnow()
@@ -2434,7 +2487,9 @@ async def end_challenge_session(
 ) -> dict[str, Any]:
     await auto_close_overdue_sessions(db)
     session = (
-        await db.execute(select(TournamentChallengeSession).where(TournamentChallengeSession.id == session_id))
+        await db.execute(
+            select(TournamentChallengeSession).where(_id_text_expr(TournamentChallengeSession.id) == _id_text_value(session_id))
+        )
     ).scalar_one_or_none()
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -2520,14 +2575,20 @@ async def submit_session_score(
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     await auto_close_overdue_sessions(db)
-    session = (await db.execute(select(TournamentChallengeSession).where(TournamentChallengeSession.id == session_id))).scalar_one_or_none()
+    session = (
+        await db.execute(
+            select(TournamentChallengeSession).where(
+                _id_text_expr(TournamentChallengeSession.id) == _id_text_value(session_id)
+            )
+        )
+    ).scalar_one_or_none()
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     if session.status != "in_progress":
         raise HTTPException(status_code=409, detail="Session must be in progress")
 
     participants_stmt = select(TournamentChallengeParticipant).where(
-        TournamentChallengeParticipant.session_id == session_id,
+        _id_text_expr(TournamentChallengeParticipant.session_id) == _id_text_value(session_id),
         TournamentChallengeParticipant.invite_state == "accepted",
     )
     accepted_participants = (await db.execute(participants_stmt)).scalars().all()
@@ -2537,7 +2598,7 @@ async def submit_session_score(
     # New score submissions should replace any pending unreviewed submission
     # for this same player/session.
     pending_scores_stmt = select(TournamentSessionScore).where(
-        TournamentSessionScore.session_id == session_id,
+        _id_text_expr(TournamentSessionScore.session_id) == _id_text_value(session_id),
         TournamentSessionScore.player_user_id == current_user.id,
         TournamentSessionScore.status == "pending_confirmation",
     )
@@ -2753,7 +2814,7 @@ async def session_scoreboard(
     participant = (
         await db.execute(
             select(TournamentChallengeParticipant).where(
-                TournamentChallengeParticipant.session_id == session_id,
+                _id_text_expr(TournamentChallengeParticipant.session_id) == _id_text_value(session_id),
                 TournamentChallengeParticipant.user_id == current_user.id,
             )
         )
@@ -2764,8 +2825,11 @@ async def session_scoreboard(
     entry_rows = (
         await db.execute(
             select(TournamentScoreboardEntry, TournamentSessionScore)
-            .join(TournamentSessionScore, TournamentSessionScore.id == TournamentScoreboardEntry.score_id)
-            .where(TournamentScoreboardEntry.session_id == session_id)
+            .join(
+                TournamentSessionScore,
+                _id_text_expr(TournamentSessionScore.id) == _id_text_expr(TournamentScoreboardEntry.score_id),
+            )
+            .where(_id_text_expr(TournamentScoreboardEntry.session_id) == _id_text_value(session_id))
             .order_by(TournamentScoreboardEntry.confirmed_at.desc().nullslast())
         )
     ).all()
