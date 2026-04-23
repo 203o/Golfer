@@ -13,6 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from requests.auth import HTTPBasicAuth
 from sqlalchemy import and_, delete, func, or_, select
+from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
@@ -152,6 +153,16 @@ def _event_public_type(
     if _is_solo_event_type(resolved_type, resolved_max):
         return "solo"
     return (resolved_type or "group_challenge").strip().lower()
+
+
+def _is_missing_relation_or_column_error(exc: Exception) -> bool:
+    message = str(exc).lower()
+    return (
+        "undefinedtableerror" in message
+        or "undefinedcolumnerror" in message
+        or ("relation" in message and "does not exist" in message)
+        or ("column" in message and "does not exist" in message)
+    )
 
 
 def expected_holes(round_type: str) -> int:
@@ -518,7 +529,13 @@ async def auto_close_overdue_sessions(db: AsyncSession) -> None:
             TournamentChallengeSession.auto_close_at <= now,
         )
     )
-    overdue_sessions = (await db.execute(overdue_stmt)).scalars().all()
+    try:
+        overdue_sessions = (await db.execute(overdue_stmt)).scalars().all()
+    except ProgrammingError as exc:
+        if not _is_missing_relation_or_column_error(exc):
+            raise
+        await db.rollback()
+        return
     if not overdue_sessions:
         return
 
@@ -1751,7 +1768,15 @@ async def tournament_bootstrap(
         )
         .order_by(TournamentFriendRequest.created_at.desc())
     )
-    fr_rows = (await db.execute(fr_stmt)).all()
+    friend_request_table_available = True
+    try:
+        fr_rows = (await db.execute(fr_stmt)).all()
+    except ProgrammingError as exc:
+        if not _is_missing_relation_or_column_error(exc):
+            raise
+        await db.rollback()
+        fr_rows = []
+        friend_request_table_available = False
     friend_requests_out = [
         {
             "id": fr.id,
@@ -1787,33 +1812,41 @@ async def tournament_bootstrap(
             )
             friend_status = "none"
             friend_request_id = None
-            fr_lookup_stmt = (
-                select(TournamentFriendRequest)
-                .where(
-                    or_(
-                        and_(
-                            TournamentFriendRequest.sender_user_id == current_user.id,
-                            TournamentFriendRequest.receiver_user_id == user.id,
-                        ),
-                        and_(
-                            TournamentFriendRequest.sender_user_id == user.id,
-                            TournamentFriendRequest.receiver_user_id == current_user.id,
-                        ),
+            if friend_request_table_available:
+                fr_lookup_stmt = (
+                    select(TournamentFriendRequest)
+                    .where(
+                        or_(
+                            and_(
+                                TournamentFriendRequest.sender_user_id == current_user.id,
+                                TournamentFriendRequest.receiver_user_id == user.id,
+                            ),
+                            and_(
+                                TournamentFriendRequest.sender_user_id == user.id,
+                                TournamentFriendRequest.receiver_user_id == current_user.id,
+                            ),
+                        )
                     )
+                    .order_by(TournamentFriendRequest.created_at.desc())
+                    .limit(1)
                 )
-                .order_by(TournamentFriendRequest.created_at.desc())
-                .limit(1)
-            )
-            fr = (await db.execute(fr_lookup_stmt)).scalar_one_or_none()
-            if fr:
-                friend_request_id = fr.id
-                if fr.status == "accepted":
-                    friend_status = "friend"
-                elif fr.status == "pending":
-                    if fr.sender_user_id == current_user.id:
-                        friend_status = "outgoing_pending"
-                    else:
-                        friend_status = "incoming_pending"
+                try:
+                    fr = (await db.execute(fr_lookup_stmt)).scalar_one_or_none()
+                except ProgrammingError as exc:
+                    if not _is_missing_relation_or_column_error(exc):
+                        raise
+                    await db.rollback()
+                    fr = None
+                    friend_request_table_available = False
+                if fr:
+                    friend_request_id = fr.id
+                    if fr.status == "accepted":
+                        friend_status = "friend"
+                    elif fr.status == "pending":
+                        if fr.sender_user_id == current_user.id:
+                            friend_status = "outgoing_pending"
+                        else:
+                            friend_status = "incoming_pending"
 
             players_out.append(
                 {
