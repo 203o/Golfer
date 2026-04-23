@@ -815,6 +815,28 @@ class _DrawsTab extends StatelessWidget {
     return '$monthKey • $status • Entries: $entries • Winners: $winners';
   }
 
+  Future<Map<String, dynamic>?> _ensureOpenDraw(BuildContext context) async {
+    final provider = context.read<DrawProvider>();
+    final candidate = _preferredDraw(provider.draws);
+    final candidateStatus =
+        (candidate?['status'] ?? '').toString().toLowerCase();
+    if (candidate != null && candidateStatus != 'completed') {
+      return candidate;
+    }
+
+    final now = DateTime.now();
+    final drawDate = DateTime(now.year, now.month, 1);
+    try {
+      await provider.createDraw('', '', drawDate);
+    } catch (_) {
+      await provider.loadAdminDraws();
+    }
+    final refreshed = _preferredDraw(provider.draws);
+    final refreshedStatus =
+        (refreshed?['status'] ?? '').toString().toLowerCase();
+    return refreshedStatus == 'completed' ? null : refreshed;
+  }
+
   int _asInt(dynamic value, int fallback) {
     if (value is int) return value;
     if (value is num) return value.toInt();
@@ -1309,7 +1331,9 @@ class _DrawsTab extends StatelessWidget {
         const <String, dynamic>{};
     final quickDrawTarget = _preferredDraw(drawProvider.draws);
     final quickDrawId = quickDrawTarget?['id']?.toString() ?? '';
-    final quickDrawReady = quickDrawId.isNotEmpty;
+    final quickDrawReady = quickDrawId.isNotEmpty &&
+        (quickDrawTarget?['status'] ?? '').toString().toLowerCase() !=
+            'completed';
 
     return ColoredBox(
       color: _bg,
@@ -1439,7 +1463,7 @@ class _DrawsTab extends StatelessWidget {
                       Text(
                         quickDrawReady
                             ? 'Target: ${_drawSummary(quickDrawTarget)}'
-                            : 'Create a draw first, then simulate or publish it here.',
+                            : 'No open draw is available. Create the current month draw or let a control create it for you.',
                         style: const TextStyle(
                           color: _textMuted,
                           fontWeight: FontWeight.w600,
@@ -1450,106 +1474,161 @@ class _DrawsTab extends StatelessWidget {
                         spacing: 8,
                         runSpacing: 8,
                         children: [
+                          ElevatedButton.icon(
+                            style: _filledStyle(),
+                            onPressed: () async {
+                              final drawProvider = context.read<DrawProvider>();
+                              final messenger = ScaffoldMessenger.of(context);
+                              try {
+                                await drawProvider.createDraw(
+                                  '',
+                                  '',
+                                  DateTime(DateTime.now().year,
+                                      DateTime.now().month, 1),
+                                );
+                                if (!context.mounted) return;
+                                messenger.showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Current month draw created'),
+                                  ),
+                                );
+                              } catch (e) {
+                                if (!context.mounted) return;
+                                messenger.showSnackBar(
+                                  SnackBar(
+                                    content: Text('Create draw failed: $e'),
+                                  ),
+                                );
+                              }
+                            },
+                            icon: const Icon(Icons.add),
+                            label: const Text('Create Current Month Draw'),
+                          ),
                           OutlinedButton.icon(
                             style: _outlinedStyle(),
-                            onPressed: !quickDrawReady
-                                ? null
-                                : () async {
-                                    try {
-                                      final result = await context
-                                          .read<DrawProvider>()
-                                          .simulateDraw(
-                                            drawId: quickDrawId,
-                                            logicMode: 'random',
-                                          );
-                                      if (!context.mounted) return;
-                                      final preview = _asMap(result['preview']);
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            'Random simulation ready. ${_previewTierSummary(preview)}',
-                                          ),
-                                        ),
-                                      );
-                                    } catch (e) {
-                                      if (!context.mounted) return;
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            'Random simulation failed: $e',
-                                          ),
-                                        ),
-                                      );
-                                    }
-                                  },
+                            onPressed: () async {
+                              final drawProvider = context.read<DrawProvider>();
+                              final messenger = ScaffoldMessenger.of(context);
+                              try {
+                                final target = await _ensureOpenDraw(context);
+                                if (target == null) {
+                                  if (!context.mounted) return;
+                                  messenger.showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Create an open draw first to simulate it.',
+                                      ),
+                                    ),
+                                  );
+                                  return;
+                                }
+                                final result = await drawProvider.simulateDraw(
+                                  drawId: target['id'].toString(),
+                                  logicMode: 'random',
+                                );
+                                if (!context.mounted) return;
+                                final preview = _asMap(result['preview']);
+                                messenger.showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      'Random simulation ready. ${_previewTierSummary(preview)}',
+                                    ),
+                                  ),
+                                );
+                              } catch (e) {
+                                if (!context.mounted) return;
+                                messenger.showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      'Random simulation failed: $e',
+                                    ),
+                                  ),
+                                );
+                              }
+                            },
                             icon: const Icon(Icons.casino_outlined),
                             label: const Text('Simulate Random'),
                           ),
                           OutlinedButton.icon(
                             style: _outlinedStyle(),
-                            onPressed: !quickDrawReady
-                                ? null
-                                : () async {
-                                    try {
-                                      final result = await context
-                                          .read<DrawProvider>()
-                                          .simulateDraw(
-                                            drawId: quickDrawId,
-                                            logicMode: 'algorithmic',
-                                          );
-                                      if (!context.mounted) return;
-                                      final preview = _asMap(result['preview']);
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            'Algorithmic simulation ready. ${_previewTierSummary(preview)}',
-                                          ),
-                                        ),
-                                      );
-                                    } catch (e) {
-                                      if (!context.mounted) return;
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            'Algorithmic simulation failed: $e',
-                                          ),
-                                        ),
-                                      );
-                                    }
-                                  },
+                            onPressed: () async {
+                              final drawProvider = context.read<DrawProvider>();
+                              final messenger = ScaffoldMessenger.of(context);
+                              try {
+                                final target = await _ensureOpenDraw(context);
+                                if (target == null) {
+                                  if (!context.mounted) return;
+                                  messenger.showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Create an open draw first to simulate it.',
+                                      ),
+                                    ),
+                                  );
+                                  return;
+                                }
+                                final result = await drawProvider.simulateDraw(
+                                  drawId: target['id'].toString(),
+                                  logicMode: 'algorithmic',
+                                );
+                                if (!context.mounted) return;
+                                final preview = _asMap(result['preview']);
+                                messenger.showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      'Algorithmic simulation ready. ${_previewTierSummary(preview)}',
+                                    ),
+                                  ),
+                                );
+                              } catch (e) {
+                                if (!context.mounted) return;
+                                messenger.showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      'Algorithmic simulation failed: $e',
+                                    ),
+                                  ),
+                                );
+                              }
+                            },
                             icon: const Icon(Icons.auto_graph_outlined),
                             label: const Text('Simulate Algorithmic'),
                           ),
                           ElevatedButton.icon(
                             style: _filledStyle(),
-                            onPressed: !quickDrawReady
-                                ? null
-                                : () async {
-                                    try {
-                                      await context
-                                          .read<DrawProvider>()
-                                          .selectWinner(quickDrawId);
-                                      if (!context.mounted) return;
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        const SnackBar(
-                                          content: Text('Draw run submitted'),
-                                        ),
-                                      );
-                                    } catch (e) {
-                                      if (!context.mounted) return;
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        SnackBar(
-                                          content: Text('Run draw failed: $e'),
-                                        ),
-                                      );
-                                    }
-                                  },
+                            onPressed: () async {
+                              final drawProvider = context.read<DrawProvider>();
+                              final messenger = ScaffoldMessenger.of(context);
+                              try {
+                                final target = await _ensureOpenDraw(context);
+                                if (target == null) {
+                                  if (!context.mounted) return;
+                                  messenger.showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Create an open draw first to run it.',
+                                      ),
+                                    ),
+                                  );
+                                  return;
+                                }
+                                await drawProvider
+                                    .selectWinner(target['id'].toString());
+                                if (!context.mounted) return;
+                                messenger.showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Draw run submitted'),
+                                  ),
+                                );
+                              } catch (e) {
+                                if (!context.mounted) return;
+                                messenger.showSnackBar(
+                                  SnackBar(
+                                    content: Text('Run draw failed: $e'),
+                                  ),
+                                );
+                              }
+                            },
                             icon: const Icon(Icons.play_arrow),
                             label: const Text('Run & Publish'),
                           ),
