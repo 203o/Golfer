@@ -788,6 +788,33 @@ class _DrawsTab extends StatelessWidget {
     );
   }
 
+  Map<String, dynamic>? _preferredDraw(List<dynamic> draws) {
+    Map<String, dynamic>? firstDraw;
+    Map<String, dynamic>? actionableDraw;
+    for (final raw in draws) {
+      if (raw is! Map) continue;
+      final draw = raw.map(
+        (key, value) => MapEntry(key.toString(), value),
+      );
+      firstDraw ??= draw;
+      final status = (draw['status'] ?? '').toString().toLowerCase();
+      if (status != 'completed') {
+        actionableDraw = draw;
+        break;
+      }
+    }
+    return actionableDraw ?? firstDraw;
+  }
+
+  String _drawSummary(Map<String, dynamic>? draw) {
+    if (draw == null) return 'No draw selected';
+    final monthKey = (draw['month_key'] ?? 'Draw').toString();
+    final status = (draw['status'] ?? 'unknown').toString();
+    final entries = _asInt(draw['entries_count'], 0);
+    final winners = _asInt(draw['winner_count'], 0);
+    return '$monthKey • $status • Entries: $entries • Winners: $winners';
+  }
+
   int _asInt(dynamic value, int fallback) {
     if (value is int) return value;
     if (value is num) return value.toInt();
@@ -1280,6 +1307,9 @@ class _DrawsTab extends StatelessWidget {
     final report = drawProvider.adminReportSummary ?? const <String, dynamic>{};
     final drawStats = (report['draw_statistics'] as Map<String, dynamic>?) ??
         const <String, dynamic>{};
+    final quickDrawTarget = _preferredDraw(drawProvider.draws);
+    final quickDrawId = quickDrawTarget?['id']?.toString() ?? '';
+    final quickDrawReady = quickDrawId.isNotEmpty;
 
     return ColoredBox(
       color: _bg,
@@ -1391,6 +1421,142 @@ class _DrawsTab extends StatelessWidget {
                       label: const Text('Create Draw'),
                     ),
                   ],
+                ),
+                const SizedBox(height: 10),
+                _panelCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Simulation / Run Draw',
+                        style: TextStyle(
+                          color: _textPrimary,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        quickDrawReady
+                            ? 'Target: ${_drawSummary(quickDrawTarget)}'
+                            : 'Create a draw first, then simulate or publish it here.',
+                        style: const TextStyle(
+                          color: _textMuted,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          OutlinedButton.icon(
+                            style: _outlinedStyle(),
+                            onPressed: !quickDrawReady
+                                ? null
+                                : () async {
+                                    try {
+                                      final result = await context
+                                          .read<DrawProvider>()
+                                          .simulateDraw(
+                                            drawId: quickDrawId,
+                                            logicMode: 'random',
+                                          );
+                                      if (!context.mounted) return;
+                                      final preview = _asMap(result['preview']);
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            'Random simulation ready. ${_previewTierSummary(preview)}',
+                                          ),
+                                        ),
+                                      );
+                                    } catch (e) {
+                                      if (!context.mounted) return;
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            'Random simulation failed: $e',
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  },
+                            icon: const Icon(Icons.casino_outlined),
+                            label: const Text('Simulate Random'),
+                          ),
+                          OutlinedButton.icon(
+                            style: _outlinedStyle(),
+                            onPressed: !quickDrawReady
+                                ? null
+                                : () async {
+                                    try {
+                                      final result = await context
+                                          .read<DrawProvider>()
+                                          .simulateDraw(
+                                            drawId: quickDrawId,
+                                            logicMode: 'algorithmic',
+                                          );
+                                      if (!context.mounted) return;
+                                      final preview = _asMap(result['preview']);
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            'Algorithmic simulation ready. ${_previewTierSummary(preview)}',
+                                          ),
+                                        ),
+                                      );
+                                    } catch (e) {
+                                      if (!context.mounted) return;
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            'Algorithmic simulation failed: $e',
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  },
+                            icon: const Icon(Icons.auto_graph_outlined),
+                            label: const Text('Simulate Algorithmic'),
+                          ),
+                          ElevatedButton.icon(
+                            style: _filledStyle(),
+                            onPressed: !quickDrawReady
+                                ? null
+                                : () async {
+                                    try {
+                                      await context
+                                          .read<DrawProvider>()
+                                          .selectWinner(quickDrawId);
+                                      if (!context.mounted) return;
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                          content: Text('Draw run submitted'),
+                                        ),
+                                      );
+                                    } catch (e) {
+                                      if (!context.mounted) return;
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        SnackBar(
+                                          content: Text('Run draw failed: $e'),
+                                        ),
+                                      );
+                                    }
+                                  },
+                            icon: const Icon(Icons.play_arrow),
+                            label: const Text('Run & Publish'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
