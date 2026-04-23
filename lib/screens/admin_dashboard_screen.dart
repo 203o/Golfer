@@ -3041,6 +3041,61 @@ class _UsersTabState extends State<_UsersTab> {
     await context.read<AdminUserManagementProvider>().loadUserDetails(userId);
   }
 
+  String _formatAdminTimestamp(dynamic value) {
+    final raw = (value ?? '').toString().trim();
+    if (raw.isEmpty) return 'Not recorded';
+    final parsed = DateTime.tryParse(raw);
+    if (parsed == null) return raw;
+    final local = parsed.toLocal();
+    String twoDigits(int input) => input.toString().padLeft(2, '0');
+    return '${local.year}-${twoDigits(local.month)}-${twoDigits(local.day)} ${twoDigits(local.hour)}:${twoDigits(local.minute)}';
+  }
+
+  DateTime? _parseAdminDate(dynamic value) {
+    final raw = (value ?? '').toString().trim();
+    if (raw.isEmpty) return null;
+    return DateTime.tryParse(raw)?.toLocal();
+  }
+
+  Future<DateTime?> _pickAdminDateTime(
+    BuildContext dialogContext, {
+    DateTime? initialDateTime,
+    String helpText = 'Select date and time',
+  }) async {
+    final now = DateTime.now();
+    final firstDate = DateTime(now.year - 5, 1, 1);
+    final lastDate = DateTime(now.year + 5, 12, 31);
+    final initial = initialDateTime ?? now;
+    final normalizedInitial = initial.isBefore(firstDate)
+        ? firstDate
+        : initial.isAfter(lastDate)
+            ? lastDate
+            : initial;
+
+    final pickedDate = await showDatePicker(
+      context: dialogContext,
+      initialDate: normalizedInitial,
+      firstDate: firstDate,
+      lastDate: lastDate,
+      helpText: helpText,
+    );
+    if (pickedDate == null || !dialogContext.mounted) return null;
+
+    final pickedTime = await showTimePicker(
+      context: dialogContext,
+      initialTime: TimeOfDay.fromDateTime(normalizedInitial),
+    );
+    if (pickedTime == null) return null;
+
+    return DateTime(
+      pickedDate.year,
+      pickedDate.month,
+      pickedDate.day,
+      pickedTime.hour,
+      pickedTime.minute,
+    );
+  }
+
   Future<void> _openEditUserDialog(Map<String, dynamic> user) async {
     final rootContext = context;
     final provider = context.read<AdminUserManagementProvider>();
@@ -3273,48 +3328,113 @@ class _UsersTabState extends State<_UsersTab> {
     String status = (subscription['status'] ?? 'inactive').toString();
     String planId = (subscription['plan_id'] ?? 'monthly').toString();
     bool cancelAtPeriodEnd = subscription['cancel_at_period_end'] == true;
+    DateTime? renewalDate = _parseAdminDate(subscription['renewal_date']) ??
+        _parseAdminDate(subscription['current_period_end']);
+    final currentPeriodEnd =
+        _parseAdminDate(subscription['current_period_end']);
 
     await showDialog<void>(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setModalState) => AlertDialog(
           title: const Text('Manage Subscription'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              DropdownButtonFormField<String>(
-                initialValue: planId,
-                items: const [
-                  DropdownMenuItem(value: 'monthly', child: Text('monthly')),
-                  DropdownMenuItem(value: 'yearly', child: Text('yearly')),
-                ],
-                onChanged: (value) =>
-                    setModalState(() => planId = value ?? 'monthly'),
-                decoration: const InputDecoration(labelText: 'Plan'),
-              ),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                initialValue: status,
-                items: const [
-                  DropdownMenuItem(value: 'active', child: Text('active')),
-                  DropdownMenuItem(value: 'inactive', child: Text('inactive')),
-                  DropdownMenuItem(
-                      value: 'cancelled', child: Text('cancelled')),
-                  DropdownMenuItem(value: 'lapsed', child: Text('lapsed')),
-                ],
-                onChanged: (value) =>
-                    setModalState(() => status = value ?? 'inactive'),
-                decoration: const InputDecoration(labelText: 'Status'),
-              ),
-              const SizedBox(height: 8),
-              SwitchListTile(
-                value: cancelAtPeriodEnd,
-                onChanged: (value) =>
-                    setModalState(() => cancelAtPeriodEnd = value),
-                title: const Text('Cancel at period end'),
-                contentPadding: EdgeInsets.zero,
-              ),
-            ],
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<String>(
+                  initialValue: planId,
+                  items: const [
+                    DropdownMenuItem(value: 'monthly', child: Text('monthly')),
+                    DropdownMenuItem(value: 'yearly', child: Text('yearly')),
+                  ],
+                  onChanged: (value) =>
+                      setModalState(() => planId = value ?? 'monthly'),
+                  decoration: const InputDecoration(labelText: 'Plan'),
+                ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  initialValue: status,
+                  items: const [
+                    DropdownMenuItem(value: 'active', child: Text('active')),
+                    DropdownMenuItem(value: 'inactive', child: Text('inactive')),
+                    DropdownMenuItem(
+                        value: 'cancelled', child: Text('cancelled')),
+                    DropdownMenuItem(value: 'lapsed', child: Text('lapsed')),
+                  ],
+                  onChanged: (value) =>
+                      setModalState(() => status = value ?? 'inactive'),
+                  decoration: const InputDecoration(labelText: 'Status'),
+                ),
+                const SizedBox(height: 8),
+                SwitchListTile(
+                  value: cancelAtPeriodEnd,
+                  onChanged: (value) =>
+                      setModalState(() => cancelAtPeriodEnd = value),
+                  title: const Text('Cancel at period end'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: _panel,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: _panelBorder),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Renewal / current period end',
+                        style: TextStyle(
+                          color: _textPrimary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _formatAdminTimestamp(renewalDate),
+                        style: const TextStyle(color: _textMuted),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          OutlinedButton.icon(
+                            style: _outlinedStyle(),
+                            onPressed: () async {
+                              final picked = await _pickAdminDateTime(
+                                rootContext,
+                                initialDateTime:
+                                    renewalDate ?? currentPeriodEnd ?? DateTime.now(),
+                                helpText: 'Select Renewal Date',
+                              );
+                              if (picked == null || !rootContext.mounted) {
+                                return;
+                              }
+                              setModalState(() => renewalDate = picked);
+                            },
+                            icon: const Icon(Icons.edit_calendar),
+                            label: const Text('Pick Renewal'),
+                          ),
+                          TextButton(
+                            onPressed: currentPeriodEnd == null
+                                ? null
+                                : () => setModalState(
+                                    () => renewalDate = currentPeriodEnd,
+                                  ),
+                            child: const Text('Use period end'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
           actions: [
             TextButton(
@@ -3324,12 +3444,19 @@ class _UsersTabState extends State<_UsersTab> {
             ElevatedButton(
               onPressed: () async {
                 try {
+                  final selectedRenewalDate = renewalDate;
+                  final renewalIso = selectedRenewalDate
+                      ?.toUtc()
+                      .toIso8601String();
                   await provider.updateSubscription(
                     subscription['id'].toString(),
                     {
                       'plan_id': planId,
                       'status': status,
                       'cancel_at_period_end': cancelAtPeriodEnd,
+                      if (renewalIso != null) 'renewal_date': renewalIso,
+                      if (renewalIso != null)
+                        'current_period_end': renewalIso,
                     },
                   );
                   if (!rootContext.mounted) return;
