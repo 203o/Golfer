@@ -1117,8 +1117,10 @@ class _DrawsTab extends StatelessWidget {
 
     return ColoredBox(
       color: _bg,
-      child: Column(
-        children: [
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(0, 0, 0, 16),
+        child: Column(
+          children: [
           _adminContentFrame(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
             child: Column(
@@ -1546,11 +1548,6 @@ class _DrawsTab extends StatelessWidget {
               ),
             ),
           ),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(0, 0, 0, 16),
-              child: Column(
-                children: [
                   if (drawProvider.draws.isEmpty)
                     const Padding(
                       padding: EdgeInsets.all(20),
@@ -2134,10 +2131,7 @@ class _DrawsTab extends StatelessWidget {
                 ],
               ),
             ),
-          ),
-        ],
-      ),
-    );
+          );
   }
 }
 
