@@ -2562,74 +2562,77 @@ async def subscription_checkout_complete(
     referral_bonus_awarded_to_user_id: int | None = None
     if prior_payments_count == 0:
         try:
-            referral = (
-                await db.execute(
-                    select(GolfReferral)
-                    .where(
-                        GolfReferral.referred_user_id == current_user.id,
-                        GolfReferral.status.in_(["captured", "qualified"]),
-                    )
-                    .order_by(GolfReferral.captured_at.asc())
-                    .limit(1)
-                )
-            ).scalar_one_or_none()
-            if referral:
-                bonus_amount = float(referral.reward_amount_usd or REFERRAL_BONUS_USD)
-                referrer_wallet = (
+            # Keep referral side-effects isolated so missing legacy tables do not
+            # poison the main checkout transaction.
+            async with db.begin_nested():
+                referral = (
                     await db.execute(
-                        select(Wallet).where(Wallet.user_id == referral.referrer_user_id).limit(1)
+                        select(GolfReferral)
+                        .where(
+                            GolfReferral.referred_user_id == current_user.id,
+                            GolfReferral.status.in_(["captured", "qualified"]),
+                        )
+                        .order_by(GolfReferral.captured_at.asc())
+                        .limit(1)
                     )
                 ).scalar_one_or_none()
-                if not referrer_wallet:
-                    referrer_wallet = Wallet(
-                        user_id=referral.referrer_user_id,
-                        available_balance=0.0,
-                        total_topups=0.0,
-                        total_donated=0.0,
-                        token_balance=0.0,
-                        total_purchased=0.0,
-                    )
-                    db.add(referrer_wallet)
-                    await db.flush()
+                if referral:
+                    bonus_amount = float(referral.reward_amount_usd or REFERRAL_BONUS_USD)
+                    referrer_wallet = (
+                        await db.execute(
+                            select(Wallet).where(Wallet.user_id == referral.referrer_user_id).limit(1)
+                        )
+                    ).scalar_one_or_none()
+                    if not referrer_wallet:
+                        referrer_wallet = Wallet(
+                            user_id=referral.referrer_user_id,
+                            available_balance=0.0,
+                            total_topups=0.0,
+                            total_donated=0.0,
+                            token_balance=0.0,
+                            total_purchased=0.0,
+                        )
+                        db.add(referrer_wallet)
+                        await db.flush()
 
-                referrer_wallet.available_balance = wallet_available_amount(referrer_wallet) + bonus_amount
-                referrer_wallet.token_balance = float(referrer_wallet.available_balance or 0.0)
-                referrer_wallet.last_updated = now
-                db.add(
-                    WalletLedger(
-                        user_id=referral.referrer_user_id,
-                        entry_type="referral_bonus",
-                        amount=bonus_amount,
-                        currency="USD",
-                        reference_type="golf_referral",
-                        reference_id=referral.id,
-                        status="completed",
-                        metadata_json={
-                            "referred_user_id": current_user.id,
-                            "subscription_id": target_sub.id,
-                            "payment_provider": payload.payment_provider,
-                        },
+                    referrer_wallet.available_balance = wallet_available_amount(referrer_wallet) + bonus_amount
+                    referrer_wallet.token_balance = float(referrer_wallet.available_balance or 0.0)
+                    referrer_wallet.last_updated = now
+                    db.add(
+                        WalletLedger(
+                            user_id=referral.referrer_user_id,
+                            entry_type="referral_bonus",
+                            amount=bonus_amount,
+                            currency="USD",
+                            reference_type="golf_referral",
+                            reference_id=referral.id,
+                            status="completed",
+                            metadata_json={
+                                "referred_user_id": current_user.id,
+                                "subscription_id": target_sub.id,
+                                "payment_provider": payload.payment_provider,
+                            },
+                        )
                     )
-                )
-                referral.status = "rewarded"
-                referral.qualified_at = referral.qualified_at or now
-                referral.rewarded_at = now
-                referral.rewarded_subscription_id = target_sub.id
-                db.add(
-                    TournamentInboxMessage(
-                        recipient_user_id=referral.referrer_user_id,
-                        sender_user_id=current_user.id,
-                        message_type="system",
-                        title="Referral Bonus Added",
-                        body=(
-                            f"You earned ${bonus_amount:.2f} referral bonus after "
-                            f"{current_user.username} completed their first subscription."
-                        ),
-                        status="unread",
+                    referral.status = "rewarded"
+                    referral.qualified_at = referral.qualified_at or now
+                    referral.rewarded_at = now
+                    referral.rewarded_subscription_id = target_sub.id
+                    db.add(
+                        TournamentInboxMessage(
+                            recipient_user_id=referral.referrer_user_id,
+                            sender_user_id=current_user.id,
+                            message_type="system",
+                            title="Referral Bonus Added",
+                            body=(
+                                f"You earned ${bonus_amount:.2f} referral bonus after "
+                                f"{current_user.username} completed their first subscription."
+                            ),
+                            status="unread",
+                        )
                     )
-                )
-                referral_bonus_awarded_usd = bonus_amount
-                referral_bonus_awarded_to_user_id = int(referral.referrer_user_id)
+                    referral_bonus_awarded_usd = bonus_amount
+                    referral_bonus_awarded_to_user_id = int(referral.referrer_user_id)
         except ProgrammingError as exc:
             if not _is_missing_relation_error(exc):
                 raise
